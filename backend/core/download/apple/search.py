@@ -2,6 +2,7 @@
 
 import json
 import re
+from datetime import datetime
 from typing import Any
 from urllib.parse import quote_plus
 
@@ -167,8 +168,6 @@ def search_apple_tv_api(
                     if release_date:
                         try:
                             if isinstance(release_date, (int, float)):
-                                from datetime import datetime
-
                                 result_year = datetime.utcfromtimestamp(
                                     release_date / 1000
                                 ).year
@@ -353,8 +352,6 @@ def _extract_content_url_from_search(
                     if release_date:
                         try:
                             if isinstance(release_date, (int, float)):
-                                from datetime import datetime
-
                                 result_year = datetime.utcfromtimestamp(
                                     release_date / 1000
                                 ).year
