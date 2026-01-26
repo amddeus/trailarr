@@ -165,8 +165,7 @@
             <span class="label">Trailer</span>
             <div class="input-row">
               <div class="labeled-input">
-                <span class="text-md sm-none">Apple TV ID:</span>
-                <span class="text-md sm-show">Apple TV ID:</span>
+                <span class="text-md">Apple TV ID:</span>
                 <input id="trailer_id" type="text" [(ngModel)]="trailer_url" placeholder="Apple TV Trailer ID" />
               </div>
               @if (selectedMedia_.youtube_trailer_id == '' && trailer_url == '' && !isLoadingDownload()) {
