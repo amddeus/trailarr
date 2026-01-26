@@ -69,33 +69,31 @@ def compute_file_hash(file_path: str) -> str:
         return ""
 
 
-def find_youtube_id(media_info: VideoInfo, media: MediaRead) -> str:
-    """Find the YouTube ID for a trailer based on its path.
+def find_trailer_id(media_info: VideoInfo, media: MediaRead) -> str:
+    """Find the trailer ID (Apple ID or YouTube ID) for a trailer.
     Args:
         media_info (VideoInfo): The video info object.
         media (MediaRead): The media object.
     Returns:
-        str: The YouTube ID if found, else `unknown0000`.
+        str: The trailer ID if found, else `unknown0000`.
     """
-    youtube_id = media_info.youtube_id or "unknown0000"
-    if youtube_id == "unknown0000" and media.youtube_trailer_id:
+    trailer_id = media_info.youtube_id or "unknown0000"
+    if trailer_id == "unknown0000" and media.youtube_trailer_id:
         # Check if file was recently created (within 1 hour of download)
         if media.downloaded_at:
-            # media.downloaded_at is UTC but timezone-naive from database
-            # media_info.created_at is timezone-aware UTC
             downloaded_at = media.downloaded_at.replace(tzinfo=timezone.utc)
             time_diff = media_info.created_at - downloaded_at
             time_diff = abs(time_diff.total_seconds())
-            if time_diff < 3600:  # Within 1 hour
-                youtube_id = media.youtube_trailer_id
-    return youtube_id
+            if time_diff < 3600:
+                trailer_id = media.youtube_trailer_id
+    return trailer_id
 
 
 async def record_new_trailer_download(
     media: MediaRead,
     profile_id: int,
     file_path: str,
-    youtube_video_id: str | None = None,
+    trailer_id: str | None = None,
 ) -> None:
     """
     Records a new trailer download in the database with comprehensive metadata.
@@ -103,10 +101,10 @@ async def record_new_trailer_download(
         media (MediaRead): The media object.
         profile_id (int): The ID of the TrailerProfile used for download.
         file_path (str): The path to the downloaded file.
-        youtube_video_id (str): The YouTube video ID of the trailer.
+        trailer_id (str): The trailer ID (Apple ID or other identifier).
     """
     logger.debug(
-        f"Recording new trailer download for media {media.title} [{media.id}]"
+        f"Recording new trailer download for media '{media.title}' [{media.id}]"
     )
     try:
         # Get media info using ffprobe
@@ -138,10 +136,10 @@ async def record_new_trailer_download(
         if video_stream:
             resolution = get_resolution_label(video_stream.coded_height)
 
-        # Get youtube video id
-        yt_id = find_youtube_id(media_info, media)
-        if yt_id == "unknown0000" and youtube_video_id:
-            yt_id = youtube_video_id
+        # Get trailer id
+        found_id = find_trailer_id(media_info, media)
+        if found_id == "unknown0000" and trailer_id:
+            found_id = trailer_id
 
         # Create download record with comprehensive metadata
         download = DownloadCreate(
@@ -167,8 +165,8 @@ async def record_new_trailer_download(
                 else None
             ),
             duration=media_info.duration_seconds,
-            youtube_id=yt_id,
-            youtube_channel=media_info.youtube_channel,
+            youtube_id=found_id,
+            youtube_channel="Apple TV",
             file_exists=True,
             profile_id=profile_id,
             media_id=media.id,
@@ -180,11 +178,11 @@ async def record_new_trailer_download(
         download_manager.create(download)
         logger.debug(
             "Successfully recorded new trailer download for media"
-            f" {media.title} [{media.id}]"
+            f" '{media.title}' [{media.id}]"
         )
 
     except Exception as e:
         logger.error(
             "Failed to record new trailer download for media"
-            f" {media.title} [{media.id}]: {e}"
+            f" '{media.title}' [{media.id}]: {e}"
         )
