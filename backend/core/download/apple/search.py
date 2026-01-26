@@ -15,6 +15,10 @@ from core.download.apple.api import AppleTVPlus, TrailerInfo, HEADERS
 
 logger = ModuleLogger("AppleTrailerSearch")
 
+# Minimum score required for a title match to be considered valid
+# This ensures we don't download trailers for wrong movies
+MINIMUM_TITLE_MATCH_SCORE = 50
+
 
 def _normalize_title(title: str) -> str:
     """Normalize a title for comparison."""
@@ -191,7 +195,7 @@ def search_apple_tv_api(
                         item_title, title, result_year, year
                     )
                     # Require at least 50 points to ensure actual title match
-                    if score >= 50:
+                    if score >= MINIMUM_TITLE_MATCH_SCORE:
                         results.append(
                             {
                                 "id": item_id,
@@ -277,7 +281,7 @@ def search_apple_itunes(
         )
 
         # Require at least 50 points to ensure actual title match
-        if score >= 50:
+        if score >= MINIMUM_TITLE_MATCH_SCORE:
             scored_results.append((score, result))
 
     scored_results.sort(key=lambda x: x[0], reverse=True)
@@ -377,7 +381,7 @@ def _extract_content_url_from_search(
                         item_title, title, result_year, year
                     )
                     # Require at least 50 points to ensure actual title match
-                    if score >= 50:
+                    if score >= MINIMUM_TITLE_MATCH_SCORE:
                         url = item_url
                         if not url and item_id:
                             media = "movie" if is_movie else "show"
@@ -496,7 +500,7 @@ def search_for_trailer(
                 0,  # Don't use year for this check
                 0,
             )
-            if content_score < 50:
+            if content_score < MINIMUM_TITLE_MATCH_SCORE:
                 logger.warning(
                     f"Trailer content title '{trailer.content_title}' does not match "
                     f"search title '{media.title}' (score: {content_score}). Skipping."
@@ -513,7 +517,7 @@ def search_for_trailer(
                             alt_score = _calculate_match_score(
                                 t.content_title, media.title, 0, 0
                             )
-                            if alt_score >= 50:
+                            if alt_score >= MINIMUM_TITLE_MATCH_SCORE:
                                 return t
                 return None
 

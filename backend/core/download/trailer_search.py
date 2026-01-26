@@ -21,10 +21,8 @@ def search_for_trailer(
         str | None: Apple TV trailer ID if found, else None.
     """
     trailer_info = apple_search(media, exclude=[])
-    
     if not trailer_info:
         return None
-    
     return trailer_info.apple_id
 
 

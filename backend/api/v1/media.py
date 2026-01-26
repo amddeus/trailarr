@@ -1,3 +1,5 @@
+import re
+
 from fastapi import APIRouter, HTTPException, status
 
 from api.v1 import websockets
@@ -361,7 +363,6 @@ async def update_trailer_id(media_id: int, trailer_id: str) -> str:
     # Check if trailer_id is a URL and extract the ID
     if trailer_id and trailer_id.startswith("http"):
         # Extract Apple TV ID from URL (format: .../umc.cmc.xxxxx)
-        import re
         match = re.search(r'(umc\.cmc\.[a-z0-9]+)', trailer_id)
         if match:
             trailer_id = match.group(1)
