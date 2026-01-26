@@ -46,8 +46,8 @@ class TestTitlesMatch:
             ("Spider-Man", "Batman", False),
             # Empty strings - both empty match
             ("", "", True),
-            # One empty, one not - substring match ("test" in "")
-            ("Test", "", True),  # "" is in "test" so matches
+            # One empty - empty string is always a substring of any string
+            ("Test", "", True),
         ],
     )
     def test_titles_match(self, title1, title2, expected):

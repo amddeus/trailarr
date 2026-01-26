@@ -29,9 +29,14 @@ def get_trailer_info(
     trailer_info = search_for_trailer(media, exclude)
 
     if not trailer_info:
+        filter_name = (
+            profile.customfilter.filter_name
+            if profile.customfilter
+            else "unknown"
+        )
         logger.warning(
             f"No trailer found for '{media.title}' [{media.id}] "
-            f"with profile '{profile.customfilter.filter_name}'."
+            f"with profile '{filter_name}'."
         )
         return None
 

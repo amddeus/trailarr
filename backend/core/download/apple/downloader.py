@@ -5,7 +5,6 @@ import os
 import subprocess
 import tempfile
 import time
-from typing import Any
 
 import aiohttp
 import m3u8
@@ -15,17 +14,12 @@ from config.settings import app_settings
 from core.base.database.models.trailerprofile import TrailerProfileRead
 from core.download.apple.api import TrailerInfo
 from core.download.apple.hls import (
-    HLSStreamInfo,
-    VideoStreamInfo,
-    AudioStreamInfo,
     get_hls_streams,
     select_best_streams,
 )
 from exceptions import DownloadFailedError
 
 logger = ModuleLogger("AppleDownloader")
-
-DOWNLOAD_TIMEOUT = 900  # 15 minutes timeout
 
 
 async def _fetch_segment(
@@ -255,10 +249,15 @@ async def download_apple_trailer(
         raise DownloadFailedError("Failed to parse HLS playlist")
 
     # Select best streams based on profile settings
+    preferred_lang = (
+        profile.subtitles_language[:2]
+        if len(profile.subtitles_language) >= 2
+        else profile.subtitles_language
+    )
     video_stream, audio_stream = select_best_streams(
         hls_info,
         max_resolution=profile.video_resolution,
-        preferred_language=profile.subtitles_language[:2],
+        preferred_language=preferred_lang,
     )
 
     if not video_stream and not audio_stream:

@@ -10,6 +10,22 @@ from app_logger import ModuleLogger
 logger = ModuleLogger("AppleHLS")
 
 
+def _parse_bitrate(bitrate_str: str) -> int:
+    """Parse bitrate string to numeric kbps value."""
+    if not bitrate_str or not isinstance(bitrate_str, str):
+        return 0
+    try:
+        parts = bitrate_str.split()
+        if not parts:
+            return 0
+        value = float(parts[0])
+        if "Mb" in bitrate_str or "mb" in bitrate_str:
+            value *= 1000
+        return int(value)
+    except (ValueError, IndexError):
+        return 0
+
+
 @dataclass
 class VideoStreamInfo:
     """Information about a video stream."""
@@ -256,17 +272,8 @@ def select_best_streams(
     if matching_lang:
         audio_streams = matching_lang
 
-    # Sort by bitrate descending (parse bitrate string)
-    def parse_bitrate(bitrate_str: str) -> int:
-        try:
-            value = float(bitrate_str.split()[0])
-            if "Mb" in bitrate_str:
-                value *= 1000
-            return int(value)
-        except Exception:
-            return 0
-
-    audio_streams.sort(key=lambda x: parse_bitrate(x.bitrate), reverse=True)
+    # Sort by bitrate descending
+    audio_streams.sort(key=lambda x: _parse_bitrate(x.bitrate), reverse=True)
 
     selected_audio = audio_streams[0] if audio_streams else None
 
