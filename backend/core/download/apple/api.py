@@ -249,14 +249,81 @@ class AppleTVPlus:
                 return None
 
         if r.status_code != 200:
-            logger.error(f"API returned status {r.status_code}")
-            return None
+            logger.debug(f"API returned status {r.status_code}, trying page scrape...")
+            return self._get_data_from_page()
 
         try:
             return r.json()
         except json.JSONDecodeError:
             logger.error("Failed to parse API response as JSON")
+            return self._get_data_from_page()
+
+    def _get_data_from_page(self) -> dict[str, Any] | None:
+        """Fetch content data directly from Apple TV page HTML."""
+        logger.debug("Fetching data from page HTML...")
+
+        page_url = f"https://tv.apple.com/{self.locale_code}/{self.kind}/-/{self.id}"
+
+        try:
+            r = requests.get(page_url, headers=HEADERS, timeout=30)
+        except requests.exceptions.RequestException:
+            try:
+                r = requests.get(
+                    page_url, headers=HEADERS, verify=False, timeout=30
+                )
+            except requests.exceptions.RequestException as e:
+                logger.error(f"Failed to fetch page: {e}")
+                return None
+
+        if r.status_code != 200:
+            logger.debug(f"Page returned status {r.status_code}")
             return None
+
+        soup = BeautifulSoup(r.text, "html.parser")
+        script_tag = soup.find(
+            "script",
+            attrs={"type": "application/json", "id": "serialized-server-data"},
+        )
+
+        if script_tag:
+            try:
+                data = json.loads(script_tag.text)
+                # Try to convert to expected API format
+                return self._convert_page_data_to_api_format(data)
+            except json.JSONDecodeError:
+                pass
+
+        return None
+
+    def _convert_page_data_to_api_format(
+        self, data: Any
+    ) -> dict[str, Any] | None:
+        """Convert page embedded JSON to API response format."""
+        # The page data structure is different from API response
+        # Try to find content and trailer info
+
+        def find_content_data(obj: Any) -> dict[str, Any] | None:
+            if isinstance(obj, dict):
+                # Look for content with trailers/playables
+                if "playables" in obj or "backgroundVideo" in obj:
+                    return {"data": {"content": obj}}
+
+                # Look for specific content markers
+                if obj.get("type") in ["Movie", "Show"] and obj.get("title"):
+                    return {"data": {"content": obj}}
+
+                for v in obj.values():
+                    result = find_content_data(v)
+                    if result:
+                        return result
+            elif isinstance(obj, list):
+                for item in obj:
+                    result = find_content_data(item)
+                    if result:
+                        return result
+            return None
+
+        return find_content_data(data)
 
     def _parse_genres(self, genre: Any) -> list[str]:
         """Parse genres from API response."""
