@@ -4,6 +4,8 @@ import pytest
 from core.download.apple.search import (
     _normalize_title,
     _titles_match,
+    _title_to_slug,
+    _calculate_match_score,
 )
 
 
@@ -27,6 +29,59 @@ class TestNormalizeTitle:
         """Test title normalization."""
         result = _normalize_title(title)
         assert result == expected
+
+
+class TestTitleToSlug:
+    """Tests for _title_to_slug function."""
+
+    @pytest.mark.parametrize(
+        "title,expected",
+        [
+            ("TRON: Ares", "tron-ares"),
+            ("Spider-Man: No Way Home", "spider-man-no-way-home"),
+            ("The Batman", "the-batman"),
+            ("Avengers: Endgame", "avengers-endgame"),
+            ("Fast & Furious 9", "fast-furious-9"),
+            ("Test Movie", "test-movie"),
+            ("A Movie: With Subtitle", "a-movie-with-subtitle"),
+            ("Movie's Name", "movie-s-name"),  # Apostrophe becomes space/hyphen
+            ("", ""),
+        ],
+    )
+    def test_title_to_slug(self, title, expected):
+        """Test title to slug conversion."""
+        result = _title_to_slug(title)
+        assert result == expected
+
+
+class TestCalculateMatchScore:
+    """Tests for _calculate_match_score function."""
+
+    @pytest.mark.parametrize(
+        "result_title,search_title,min_expected_score",
+        [
+            # Exact matches should score high
+            ("TRON: Ares", "TRON: Ares", 200),
+            ("The Batman", "The Batman", 200),
+            # Normalized matches should also score high
+            ("Tron Ares", "TRON: Ares", 200),
+            # Mismatches should score 0
+            ("The Gorge", "TRON: Ares", 0),
+            ("Spider-Man", "Batman", 0),
+            ("Completely Different", "Test Movie", 0),
+        ],
+    )
+    def test_calculate_match_score(
+        self, result_title, search_title, min_expected_score
+    ):
+        """Test match score calculation."""
+        score = _calculate_match_score(result_title, search_title, 0, 0)
+        if min_expected_score == 0:
+            assert score == 0, f"Expected 0 but got {score}"
+        else:
+            assert (
+                score >= min_expected_score
+            ), f"Expected at least {min_expected_score} but got {score}"
 
 
 class TestTitlesMatch:
