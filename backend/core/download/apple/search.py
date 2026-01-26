@@ -4,7 +4,7 @@ import json
 import re
 from datetime import datetime
 from typing import Any
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, urlparse
 
 import requests
 from bs4 import BeautifulSoup
@@ -434,14 +434,20 @@ def search_for_trailer(
             track_url = result.get("trackViewUrl", "")
 
             # Try to extract Apple TV URL from iTunes URL
-            if track_url and "apple.com" in track_url:
-                # iTunes links can sometimes be converted to Apple TV links
-                if "/movie/" in track_url or "/tv-season/" in track_url:
-                    content_url = track_url.replace(
-                        "itunes.apple.com", "tv.apple.com"
-                    )
-                    logger.debug(f"Found via iTunes: {content_url}")
-                    break
+            # Validate that the URL is actually from Apple's domains
+            if track_url:
+                try:
+                    parsed = urlparse(track_url)
+                    # Check that domain ends with apple.com (not a subdomain attack)
+                    if parsed.netloc.endswith(".apple.com") or parsed.netloc == "apple.com":
+                        if "/movie/" in track_url or "/tv-season/" in track_url:
+                            content_url = track_url.replace(
+                                "itunes.apple.com", "tv.apple.com"
+                            )
+                            logger.debug(f"Found via iTunes: {content_url}")
+                            break
+                except Exception:
+                    pass
 
             # Last resort: try to construct a URL from track ID
             if track_id:
