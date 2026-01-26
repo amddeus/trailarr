@@ -56,19 +56,19 @@
           </section>
           @if (info.youtube_channel || info.youtube_id) {
             <section>
-              <h2>YouTube Info</h2>
+              <h2>Trailer Source</h2>
               <hr />
               @if (info.youtube_channel) {
                 <div class="info-content">
-                  <span>Channel ID</span>
+                  <span>Source</span>
                   <code>{{ info.youtube_channel }}</code>
                 </div>
               }
               @if (info.youtube_id) {
                 <div class="info-content">
-                  <span>Video ID</span>
+                  <span>Trailer ID</span>
                   <code
-                    ><a [href]="'https://www.youtube.com/watch?v=' + info.youtube_id" target="_blank" rel="noopener">{{
+                    ><a [href]="'https://tv.apple.com/us/movie/' + info.youtube_id" target="_blank" rel="noopener">{{
                       info.youtube_id
                     }}</a></code
                   >

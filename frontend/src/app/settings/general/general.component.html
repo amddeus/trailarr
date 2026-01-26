@@ -103,20 +103,6 @@
         (optionChange)="updateSetting('log_level', $event)"
       />
       <app-text-setting
-        name="Yt-dlp Cookies Path"
-        description="Path to yt-dlp cookies file to use for downloading trailers."
-        [isNumberType]="false"
-        [isLongInput]="true"
-        [showFolderButton]="true"
-        pathShouldEndWith=".txt"
-        placeholder="/config/cookies.txt"
-        autocomplete="off"
-        [minLength]="0"
-        [maxLength]="255"
-        [value]="settings()?.yt_cookies_path ?? ''"
-        (onSubmit)="updateSetting('yt_cookies_path', $event)"
-      />
-      <app-text-setting
         name="Ffmpeg Timeout"
         description="Ffmpeg timeout (in minutes) used for converting downloaded video files"
         descriptionExtra="Default is 15. Minuimum is 10. Maximun is 300. Container restart required to apply new interval."
@@ -220,16 +206,6 @@
           (optionChange)="updateSetting('gpu_enabled_amd', $event)"
         />
       }
-      <app-options-setting
-        name="Update Yt-dlp"
-        description="Update yt-dlp to latest version during container startup."
-        descriptionExtra="You need to restart the container to apply updates."
-        [options]="trueFalseOptions"
-        [selectedOption]="settings()?.update_ytdlp"
-        [colorType]="'warning'"
-        [colorTypeOption]="'true'"
-        (optionChange)="updateSetting('update_ytdlp', $event)"
-      />
       <app-text-setting
         name="URL Base"
         description="URL Base for use with reverse proxy configuration"

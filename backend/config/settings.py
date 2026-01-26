@@ -148,44 +148,6 @@ def _start_slash_only(value: str) -> str:
     return value
 
 
-def get_ytdlp_version() -> str:
-    """Get the version of yt-dlp. \n
-    Returns:
-        str: Version of yt-dlp."""
-    _ver = getenv_str("YTDLP_VERSION", "")
-    # Try to get version from yt-dlp --version command
-    try:
-        from subprocess import check_output
-
-        # Check for different yt-dlp installation paths
-        _ytdlp_paths = [
-            getenv_str(
-                "YTDLP_PATH", "/usr/local/bin/yt-dlp"
-            ),  # Configurable path
-            "/opt/trailarr/bin/yt-dlp",  # Bare metal local install
-            "/opt/trailarr/venv/bin/yt-dlp",  # Bare metal venv
-            "/usr/local/bin/yt-dlp",  # Docker
-            "yt-dlp",  # System PATH
-        ]
-
-        for _ytdlp_path in _ytdlp_paths:
-            try:
-                _ver = (
-                    check_output([_ytdlp_path, "--version"])
-                    .decode("utf-8")
-                    .strip()
-                )
-                break
-            except (FileNotFoundError, OSError):
-                continue
-        else:
-            _ver = "0.0.0"  # If none of the paths work
-    except Exception:
-        _ver = "0.0.0"
-    _save_to_env("YTDLP_VERSION", _ver)
-    return _ver
-
-
 class _Config:
     """Class to hold configuration settings for the application. \n
     Reads environment variables to set properties. \n
@@ -219,9 +181,7 @@ class _Config:
     def __init__(self):
         # Some generic attributes for server
         self.version = getenv_str("APP_VERSION", "0.0.0")
-        self.ytdlp_version = get_ytdlp_version()
         self.update_available = False
-        self.update_available_ytdlp = False
         _now = datetime.now(timezone.utc)
         self.server_start_time = getenv_str("SERVER_START_TIME", f"{_now}")
         self.timezone = getenv_str("TZ", "UTC")
@@ -240,7 +200,6 @@ class _Config:
         _webui_password = _webui_password.replace("\t", "").strip()
         if not _webui_password:
             self.webui_password = self._DEFAULT_WEBUI_PASSWORD
-        self.yt_cookies_path = os.getenv("YT_COOKIES_PATH", "")
         self.trailer_max_duration = ""
 
     def as_dict(self):
@@ -265,15 +224,11 @@ class _Config:
             "server_start_time": self.server_start_time,
             "timezone": self.timezone,
             "update_available": self.update_available,
-            "update_available_ytdlp": self.update_available_ytdlp,
-            "update_ytdlp": self.update_ytdlp,
             "url_base": self.url_base,
             "version": self.version,
             "wait_for_media": self.wait_for_media,
             "webui_disable_auth": self.webui_disable_auth,
             "webui_username": self.webui_username,
-            "yt_cookies_path": self.yt_cookies_path,
-            "ytdlp_version": self.ytdlp_version,
         }
 
     @property
@@ -428,11 +383,6 @@ class _Config:
         - Default is 'trailarr'.
         - Valid values are any hashed string of password."""
 
-    yt_cookies_path = str_property("YT_COOKIES_PATH", default="")
-    """Path to the YouTube cookies file.
-        - Default is empty string.
-        - Valid values are any file path."""
-
     gpu_available_amd = bool_property("GPU_AVAILABLE_AMD", default=False)
     """AMD GPU available for hardware acceleration (AMF).
         - Value is set during container startup based on availability.
@@ -466,11 +416,6 @@ class _Config:
         - Default is True (enabled if available).
         - Valid values are True/False."""
 
-    update_ytdlp = bool_property("UPDATE_YTDLP", default=False)
-    """Update yt-dlp binary on startup.
-        - Default is False.
-        - Valid values are True/False."""
-
     url_base = str_property(
         "URL_BASE", default="", formatter=_start_slash_only
     )
@@ -492,12 +437,6 @@ class _Config:
         - Default is /usr/local/bin/ffprobe (Docker).
         - For bare metal installations, this should point to local ffprobe installation.
         - Valid values are any valid file path to ffprobe binary."""
-
-    ytdlp_path = str_property("YTDLP_PATH", default="/usr/local/bin/yt-dlp")
-    """Path to yt-dlp binary.
-        - Default is /usr/local/bin/yt-dlp (Docker).
-        - For bare metal installations, this should point to local yt-dlp installation.
-        - Valid values are any valid file path to yt-dlp binary."""
 
     # def resolve_closest_resolution(self, value: str | int) -> int:
     #     """Resolve the closest resolution for the given value. \n

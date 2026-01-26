@@ -218,14 +218,13 @@ export class MediaDetailsComponent {
   }
 
   saveYtId() {
-    // console.log('Saving youtube id');
-    this.webSocketService.showToast('Saving youtube id...');
+    this.webSocketService.showToast('Saving trailer ID...');
     this.isLoadingDownload.set(true);
     this.mediaService
       .saveMediaTrailer(this.mediaId(), this.trailer_url)
       .pipe(
         catchError((error) => {
-          console.error('Error searching trailer:', error.error.detail);
+          console.error('Error saving trailer:', error.error.detail);
           this.webSocketService.showToast(error.error.detail, 'Error');
           this.isLoadingDownload.set(false);
           return of('');
@@ -237,8 +236,8 @@ export class MediaDetailsComponent {
   }
 
   /**
-   * Opens a new browser tab to play the YouTube trailer of the current media.
-   * If the media does not have a YouTube trailer ID, the function returns without doing anything.
+   * Opens a new browser tab to view the Apple TV trailer of the current media.
+   * If the media does not have a trailer ID, the function returns without doing anything.
    *
    * @returns {void}
    */
@@ -246,7 +245,7 @@ export class MediaDetailsComponent {
     if (!this.selectedMedia()?.youtube_trailer_id) {
       return;
     }
-    window.open(`https://www.youtube.com/watch?v=${this.selectedMedia()?.youtube_trailer_id}`, '_blank');
+    window.open(`https://tv.apple.com/us/movie/${this.selectedMedia()?.youtube_trailer_id}`, '_blank');
   }
 
   // Reference to the dialog element

@@ -29,7 +29,7 @@ export class DownloadsComponent {
     return _profileMap;
   });
 
-  getYouTubeUrl(youtubeId: string): string {
-    return `https://www.youtube.com/watch?v=${youtubeId}`;
+  getAppleTVUrl(appleId: string): string {
+    return `https://tv.apple.com/us/movie/${appleId}`;
   }
 }

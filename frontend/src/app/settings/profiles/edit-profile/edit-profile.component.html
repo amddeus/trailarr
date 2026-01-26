@@ -297,7 +297,7 @@
       />
       <app-options-setting
         name="Always Search"
-        description="Enable this to always search for trailers, ignoring the youtube id received from Radarr."
+        description="Enable this to always search for trailers on Apple TV."
         [options]="trueFalseOptions"
         [selectedOption]="profile()?.always_search"
         (optionChange)="profileService.updateSetting('always_search', $event)"
@@ -329,21 +329,6 @@
         [value]="profile()?.exclude_words ?? ''"
         [disabled]="false"
         (onSubmit)="profileService.updateSetting('exclude_words', $event)"
-      />
-      <app-text-setting
-        name="Yt-dlp Extra Options"
-        description="Additional options to pass to yt-dlp when downloading trailers."
-        descriptionExtra="Advanced use cases only. Use with caution!"
-        [isNumberType]="false"
-        [isLongInput]="true"
-        [placeholder]="'Yt-dlp Extra Options'"
-        [autocomplete]="'off'"
-        [minLength]="0"
-        [maxLength]="500"
-        [value]="profile()?.ytdlp_extra_options ?? ''"
-        [disabled]="false"
-        [colorType]="'warning'"
-        (onSubmit)="profileService.updateSetting('ytdlp_extra_options', $event)"
       />
     </div>
   </details>
