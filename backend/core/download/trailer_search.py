@@ -4,9 +4,28 @@ from app_logger import ModuleLogger
 from core.base.database.models.media import MediaRead
 from core.base.database.models.trailerprofile import TrailerProfileRead
 from core.download.apple.api import TrailerInfo
-from core.download.apple.search import search_for_trailer
+from core.download.apple.search import search_for_trailer as apple_search
 
 logger = ModuleLogger("TrailersDownloader")
+
+
+def search_for_trailer(
+    media: MediaRead,
+    profile: TrailerProfileRead,
+) -> str | None:
+    """Search for trailer ID for the media object from Apple TV. \n
+    Args:
+        media (MediaRead): Media object.
+        profile (TrailerProfileRead): The trailer profile to use.
+    Returns:
+        str | None: Apple TV trailer ID if found, else None.
+    """
+    trailer_info = apple_search(media, exclude=[])
+    
+    if not trailer_info:
+        return None
+    
+    return trailer_info.apple_id
 
 
 def get_trailer_info(
@@ -26,7 +45,7 @@ def get_trailer_info(
         exclude = []
 
     # Search for trailer on Apple TV
-    trailer_info = search_for_trailer(media, exclude)
+    trailer_info = apple_search(media, exclude)
 
     if not trailer_info:
         filter_name = (

@@ -283,21 +283,21 @@ async def rescan_media_files(media_id: int) -> str:
     },
 )
 async def download_media_trailer(
-    media_id: int, profile_id: int, yt_id: str = ""
+    media_id: int, profile_id: int, trailer_id: str = ""
 ) -> str:
     """Download trailer for media by ID. \n
     Args:
         media_id (int): ID of the media item.
         profile_id (int): ID of the trailer profile to use for downloading.
-        yt_id (str, Optional=""): YouTube ID of the trailer.\n
+        trailer_id (str, Optional=""): Apple TV ID of the trailer.\n
     Returns:
         str: Downloading trailer message.
     """
     msg = f"Downloading trailer for media with ID: [{media_id}]"
-    if yt_id:
-        msg += f" from ({yt_id})"
+    if trailer_id:
+        msg += f" from ({trailer_id})"
     logger.info(msg)
-    return download_trailer_by_id(media_id, profile_id, yt_id)
+    return download_trailer_by_id(media_id, profile_id, trailer_id)
 
 
 @media_router.post(
@@ -345,39 +345,36 @@ async def monitor_media(media_id: int, monitor: bool = True) -> str:
         },
         status.HTTP_406_NOT_ACCEPTABLE: {
             "model": ErrorResponse,
-            "description": "Invalid YouTube URL/ID",
+            "description": "Invalid Apple TV ID",
         },
     },
 )
-async def update_yt_id(media_id: int, yt_id: str) -> str:
-    """Update YouTube ID for media by ID. \n
+async def update_trailer_id(media_id: int, trailer_id: str) -> str:
+    """Update Apple TV trailer ID for media by ID. \n
     Args:
         media_id (int): ID of the media item.
-        yt_id (str): YouTube ID of the trailer. \n
+        trailer_id (str): Apple TV ID of the trailer. \n
     Returns:
-        str: Updating YouTube ID message.
+        str: Updating trailer ID message.
     """
-    logger.info(f"Updating YouTube ID for media with ID: {media_id}")
-    # Check if yt_id is a URL and extract the ID
-    if yt_id and yt_id.startswith("http"):
-        _yt_id = trailer_utils.extract_youtube_id(yt_id)
-        if not _yt_id:
-            msg = "Invalid YouTube URL/ID!"
+    logger.info(f"Updating Apple TV ID for media with ID: {media_id}")
+    # Check if trailer_id is a URL and extract the ID
+    if trailer_id and trailer_id.startswith("http"):
+        # Extract Apple TV ID from URL (format: .../umc.cmc.xxxxx)
+        import re
+        match = re.search(r'(umc\.cmc\.[a-z0-9]+)', trailer_id)
+        if match:
+            trailer_id = match.group(1)
+        else:
+            msg = "Invalid Apple TV URL/ID!"
             await websockets.ws_manager.broadcast(msg, "Error")
             raise HTTPException(
                 status_code=status.HTTP_406_NOT_ACCEPTABLE,
-                detail="Invalid YouTube URL/ID!",
+                detail="Invalid Apple TV URL/ID!",
             )
-        yt_id = _yt_id
-    # If id is not empty, check if it is valid (length > 11)
-    if yt_id and len(yt_id) < 11:
-        raise HTTPException(
-            status_code=status.HTTP_406_NOT_ACCEPTABLE,
-            detail="Invalid YouTube ID!",
-        )
     try:
-        media_manager.update_ytid(media_id, yt_id)
-        msg = f"YouTube ID for media with ID: {media_id} has been updated."
+        media_manager.update_ytid(media_id, trailer_id)
+        msg = f"Trailer ID for media with ID: {media_id} has been updated."
         logger.info(msg)
         await websockets.ws_manager.broadcast(msg, "Success", reload="media")
         return msg
@@ -403,21 +400,21 @@ async def search_for_trailer(media_id: int, profile_id: int) -> str:
         media_id (int): ID of the media item.
         profile_id (int): ID of the trailer profile to use.\n
     Returns:
-        str: Youtube ID of the trailer if found, else empty string. \n
+        str: Apple TV ID of the trailer if found, else empty string. \n
     """
     logger.info(f"Searching for trailer for media with ID: {media_id}")
     media = media_manager.read(media_id)
     profile = trailerprofile.get_trailerprofile(profile_id)
 
-    if yt_id := trailer_search.search_yt_for_trailer(media, profile):
-        media_manager.update_ytid(media_id, yt_id)
+    if trailer_id := trailer_search.search_for_trailer(media, profile):
+        media_manager.update_ytid(media_id, trailer_id)
         msg = (
             f"Trailer found for media '{media.title}' [{media.id}] as"
-            f" ({yt_id})"
+            f" ({trailer_id})"
         )
         logger.info(msg)
         await websockets.ws_manager.broadcast(msg, "Success", reload="media")
-        return yt_id
+        return trailer_id
     msg = f"Unable to find a trailer for media '{media.title}' [{media.id}]"
     logger.info(msg)
     await websockets.ws_manager.broadcast(msg, "Error", reload="media")

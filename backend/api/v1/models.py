@@ -55,15 +55,11 @@ class Settings(BaseModel):
     server_start_time: str
     timezone: str
     update_available: bool
-    update_available_ytdlp: bool
-    update_ytdlp: bool
     url_base: str
     version: str
     wait_for_media: bool
     webui_disable_auth: bool
     webui_username: str
-    yt_cookies_path: str
-    ytdlp_version: str
 
 
 class UpdateSetting(BaseModel):

@@ -45,7 +45,7 @@ VALID_FILE_DICT = {
     "acodec": "audio_format",
     "resolution": "video_resolution",
     "vcodec": "video_format",
-    "youtube_id": "youtube_id",
+    "trailer_id": "trailer_id",
 }
 
 

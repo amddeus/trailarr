@@ -62,7 +62,11 @@ def _calculate_match_score(
     search_year: int,
     has_preview: bool = False,
 ) -> int:
-    """Calculate a match score between search and result."""
+    """Calculate a match score between search and result.
+    
+    Returns a score where higher is better. A score of 0 or negative means
+    the titles don't match at all.
+    """
     score = 0
     norm_result = _normalize_title(result_title)
     norm_search = _normalize_title(search_title)
@@ -71,35 +75,42 @@ def _calculate_match_score(
     if norm_result == norm_search:
         score += 200
 
-    # One contains the other
+    # One contains the other (for titles with subtitles)
     elif norm_result in norm_search or norm_search in norm_result:
         score += 150
 
-    # Word overlap scoring
+    # Word overlap scoring - only if there's significant overlap
     else:
-        words1 = set(norm_search.split())
-        words2 = set(norm_result.split())
-        if words1 and words2:
-            overlap = len(words1 & words2)
-            max_len = max(len(words1), len(words2))
-            overlap_pct = overlap / max_len if max_len > 0 else 0
-            score += int(overlap_pct * 100)
+        words_search = set(norm_search.split())
+        words_result = set(norm_result.split())
+        if words_search and words_result:
+            overlap = words_search & words_result
+            # Must have at least 50% word overlap to be considered
+            search_overlap_pct = len(overlap) / len(words_search) if words_search else 0
+            result_overlap_pct = len(overlap) / len(words_result) if words_result else 0
+            
+            # Take the higher percentage (so "TRON: Ares" matches "TRON: Ares 2025")
+            overlap_pct = max(search_overlap_pct, result_overlap_pct)
+            
+            if overlap_pct >= 0.5:
+                score += int(overlap_pct * 100)
+            # else: score stays 0, meaning no title match
 
-    # Year match scoring
+    # Year match scoring - only add bonus, not as primary match
     if search_year > 0 and result_year > 0:
         year_diff = abs(search_year - result_year)
         if year_diff == 0:
-            score += 50
+            score += 30
         elif year_diff == 1:
-            score += 25
+            score += 15
         elif year_diff <= 2:
-            score += 10
+            score += 5
         elif year_diff > 5:
-            score -= 20  # Penalize large year differences
+            score -= 50  # Heavy penalty for large year differences
 
     # Prefer results with trailers
     if has_preview:
-        score += 10
+        score += 5
 
     return score
 
@@ -179,7 +190,8 @@ def search_apple_tv_api(
                     score = _calculate_match_score(
                         item_title, title, result_year, year
                     )
-                    if score > 30:  # Minimum score threshold
+                    # Require at least 50 points to ensure actual title match
+                    if score >= 50:
                         results.append(
                             {
                                 "id": item_id,
@@ -264,7 +276,8 @@ def search_apple_itunes(
             has_preview=bool(result.get("previewUrl")),
         )
 
-        if score > 30:
+        # Require at least 50 points to ensure actual title match
+        if score >= 50:
             scored_results.append((score, result))
 
     scored_results.sort(key=lambda x: x[0], reverse=True)
@@ -363,7 +376,8 @@ def _extract_content_url_from_search(
                     score = _calculate_match_score(
                         item_title, title, result_year, year
                     )
-                    if score > 30:
+                    # Require at least 50 points to ensure actual title match
+                    if score >= 50:
                         url = item_url
                         if not url and item_id:
                             media = "movie" if is_movie else "show"
@@ -473,13 +487,34 @@ def search_for_trailer(
 
         if trailers:
             trailer = trailers[0]
+            
+            # CRITICAL: Validate that the returned content matches what we searched for
+            # This prevents downloading trailers for wrong movies
+            content_score = _calculate_match_score(
+                trailer.content_title,
+                media.title,
+                0,  # Don't use year for this check
+                0,
+            )
+            if content_score < 50:
+                logger.warning(
+                    f"Trailer content title '{trailer.content_title}' does not match "
+                    f"search title '{media.title}' (score: {content_score}). Skipping."
+                )
+                return None
+            
             # Check if excluded
             if trailer.apple_id and trailer.apple_id in exclude:
                 logger.debug(f"Trailer {trailer.apple_id} is in exclude list")
                 if len(trailers) > 1:
                     for t in trailers[1:]:
                         if t.apple_id not in exclude:
-                            return t
+                            # Also validate this alternate trailer
+                            alt_score = _calculate_match_score(
+                                t.content_title, media.title, 0, 0
+                            )
+                            if alt_score >= 50:
+                                return t
                 return None
 
             logger.info(
