@@ -6,6 +6,8 @@ from core.download.apple.search import (
     _titles_match,
     _title_to_slug,
     _calculate_match_score,
+    lookup_by_imdb_id,
+    _find_content_url_in_data,
 )
 
 
@@ -46,6 +48,8 @@ class TestTitleToSlug:
             ("A Movie: With Subtitle", "a-movie-with-subtitle"),
             ("Movie's Name", "movie-s-name"),  # Apostrophe becomes space/hyphen
             ("", ""),
+            # Additional tests for movies with issues
+            ("Predator: Badlands", "predator-badlands"),
         ],
     )
     def test_title_to_slug(self, title, expected):
@@ -69,6 +73,9 @@ class TestCalculateMatchScore:
             ("The Gorge", "TRON: Ares", 0),
             ("Spider-Man", "Batman", 0),
             ("Completely Different", "Test Movie", 0),
+            # Predator should match Predator: Badlands
+            ("Predator: Badlands", "Predator: Badlands", 200),
+            ("Predator Badlands", "Predator: Badlands", 200),
         ],
     )
     def test_calculate_match_score(
@@ -109,3 +116,59 @@ class TestTitlesMatch:
         """Test title matching."""
         result = _titles_match(title1, title2)
         assert result == expected
+
+
+class TestLookupByImdbId:
+    """Tests for lookup_by_imdb_id function."""
+
+    def test_lookup_empty_imdb_id(self):
+        """Test that empty IMDB ID returns None."""
+        result = lookup_by_imdb_id("", True)
+        assert result is None
+    
+    def test_lookup_none_imdb_id(self):
+        """Test that None IMDB ID returns None."""
+        result = lookup_by_imdb_id(None, True)  # type: ignore
+        assert result is None
+
+
+class TestFindContentUrlInData:
+    """Tests for _find_content_url_in_data function."""
+
+    def test_find_url_in_nested_dict(self):
+        """Test finding URL in nested dictionary structure."""
+        data = {
+            "level1": {
+                "level2": {
+                    "url": "/us/movie/test-movie/umc.cmc.12345"
+                }
+            }
+        }
+        result = _find_content_url_in_data(data, "test-movie", "movie")
+        assert result == "https://tv.apple.com/us/movie/test-movie/umc.cmc.12345"
+
+    def test_find_url_in_list(self):
+        """Test finding URL in list of dictionaries."""
+        data = [
+            {"url": "/us/show/wrong-show/umc.cmc.99999"},
+            {"canonicalUrl": "/us/movie/predator-badlands/umc.cmc.5k20n1ox51cwgge4sr476fr6p"},
+        ]
+        result = _find_content_url_in_data(data, "predator-badlands", "movie")
+        assert result == "https://tv.apple.com/us/movie/predator-badlands/umc.cmc.5k20n1ox51cwgge4sr476fr6p"
+
+    def test_no_match_found(self):
+        """Test when no matching URL is found."""
+        data = {"url": "/us/movie/other-movie/umc.cmc.12345"}
+        result = _find_content_url_in_data(data, "test-movie", "movie")
+        assert result is None
+
+    def test_empty_data(self):
+        """Test with empty data."""
+        result = _find_content_url_in_data({}, "test-movie", "movie")
+        assert result is None
+
+    def test_url_without_content_id(self):
+        """Test that URLs without content IDs are skipped."""
+        data = {"url": "/us/movie/test-movie/"}
+        result = _find_content_url_in_data(data, "test-movie", "movie")
+        assert result is None  # No umc. in URL

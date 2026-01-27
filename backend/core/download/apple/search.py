@@ -312,6 +312,90 @@ def search_apple_itunes(
     return [r[1] for r in scored_results]
 
 
+def lookup_by_imdb_id(imdb_id: str, is_movie: bool = True) -> str | None:
+    """Try to find Apple TV content URL using IMDB ID.
+    
+    Uses the iTunes lookup API to find content by IMDB ID.
+    This is the most reliable method when an IMDB ID is available.
+    """
+    if not imdb_id:
+        return None
+    
+    logger.debug(f"Looking up Apple TV content by IMDB ID: {imdb_id}")
+    
+    # iTunes lookup doesn't support IMDB ID directly, but we can search
+    # for it using the ID as a search term (sometimes works)
+    # We'll also try the Apple TV direct search with IMDB
+    
+    # Strategy 1: Try Apple TV search with IMDB ID
+    search_url = f"https://tv.apple.com/us/search?term={imdb_id}"
+    
+    try:
+        response = requests.get(search_url, headers=HEADERS, timeout=30)
+        if response.status_code != 200:
+            response = requests.get(
+                search_url, headers=HEADERS, timeout=30, verify=False
+            )
+        
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.text, "html.parser")
+            
+            # Look for embedded JSON data
+            script_tag = soup.find(
+                "script",
+                attrs={"type": "application/json", "id": "serialized-server-data"},
+            )
+            
+            if script_tag:
+                try:
+                    data = json.loads(script_tag.text)
+                    media_type = "movie" if is_movie else "show"
+                    
+                    # Search for any content URL in the results
+                    def find_first_content_url(obj: Any) -> str | None:
+                        if isinstance(obj, dict):
+                            for key in ["url", "canonicalUrl"]:
+                                url_val = obj.get(key, "")
+                                if url_val and f"/{media_type}/" in url_val:
+                                    if "umc." in url_val:
+                                        if not url_val.startswith("http"):
+                                            url_val = f"https://tv.apple.com{url_val}"
+                                        return url_val
+                            for v in obj.values():
+                                result = find_first_content_url(v)
+                                if result:
+                                    return result
+                        elif isinstance(obj, list):
+                            for item in obj:
+                                result = find_first_content_url(item)
+                                if result:
+                                    return result
+                        return None
+                    
+                    url = find_first_content_url(data)
+                    if url:
+                        logger.debug(f"Found URL via IMDB search: {url}")
+                        return url
+                except json.JSONDecodeError:
+                    pass
+            
+            # Also check for direct links in the page
+            media_type = "movie" if is_movie else "show"
+            links = soup.find_all("a", href=True)
+            for link in links:
+                href = link.get("href", "")
+                if f"/us/{media_type}/" in href and "umc." in href:
+                    if not href.startswith("http"):
+                        href = f"https://tv.apple.com{href}"
+                    logger.debug(f"Found direct link via IMDB search: {href}")
+                    return href
+    
+    except Exception as e:
+        logger.debug(f"IMDB lookup failed: {e}")
+    
+    return None
+
+
 def search_apple_tv_web(
     title: str, year: int = 0, is_movie: bool = True
 ) -> str | None:
@@ -435,10 +519,10 @@ def try_direct_slug_url(
     Apple TV URLs follow the pattern:
     https://tv.apple.com/us/movie/{title-slug}/{content-id}
     
-    This function tries to find the content by:
-    1. Generating a slug from the title
-    2. Searching Apple TV to find the actual URL with that slug
-    3. Validating the content matches the title
+    This function tries multiple approaches:
+    1. Direct page access using slug - try to access the page directly
+    2. Search and filter by slug
+    3. Look in serialized data for slug matches
     """
     logger.debug(f"Trying direct slug lookup for: {title}")
     
@@ -448,8 +532,74 @@ def try_direct_slug_url(
     
     media_type = "movie" if is_movie else "show"
     
-    # Try to find a URL that matches the slug by searching Google or Apple
-    # First, try to search Apple TV directly and look for URLs with our slug
+    # Strategy 1: Try to directly fetch a page that might use the slug
+    # Some Apple TV pages redirect or include the content even without the ID
+    direct_url = f"https://tv.apple.com/us/{media_type}/{slug}"
+    logger.debug(f"Trying direct slug URL: {direct_url}")
+    
+    try:
+        response = requests.get(
+            direct_url, headers=HEADERS, timeout=30, allow_redirects=True
+        )
+        if response.status_code != 200:
+            response = requests.get(
+                direct_url,
+                headers=HEADERS,
+                timeout=30,
+                verify=False,
+                allow_redirects=True,
+            )
+        
+        if response.status_code == 200:
+            # Check if we got redirected to a valid content page
+            final_url = response.url
+            if f"/{media_type}/" in final_url and "umc." in final_url:
+                logger.debug(f"Redirected to: {final_url}")
+                # Try to get trailer from this URL
+                atvp = AppleTVPlus()
+                trailers = atvp.get_trailers(final_url, default_only=True)
+                if trailers:
+                    trailer = trailers[0]
+                    score = _calculate_match_score(
+                        trailer.content_title, title, 0, year
+                    )
+                    if score >= MINIMUM_TITLE_MATCH_SCORE:
+                        logger.info(
+                            f"Found trailer via direct slug: {trailer.video_title}"
+                        )
+                        return trailer
+            
+            # Look for content ID in the page HTML
+            soup = BeautifulSoup(response.text, "html.parser")
+            script_tag = soup.find(
+                "script",
+                attrs={"type": "application/json", "id": "serialized-server-data"},
+            )
+            if script_tag:
+                try:
+                    data = json.loads(script_tag.text)
+                    # Look for content with matching slug in URLs
+                    found_url = _find_content_url_in_data(data, slug, media_type)
+                    if found_url:
+                        logger.debug(f"Found content URL in page data: {found_url}")
+                        atvp = AppleTVPlus()
+                        trailers = atvp.get_trailers(found_url, default_only=True)
+                        if trailers:
+                            trailer = trailers[0]
+                            score = _calculate_match_score(
+                                trailer.content_title, title, 0, year
+                            )
+                            if score >= MINIMUM_TITLE_MATCH_SCORE:
+                                logger.info(
+                                    f"Found trailer from page data: {trailer.video_title}"
+                                )
+                                return trailer
+                except json.JSONDecodeError:
+                    pass
+    except Exception as e:
+        logger.debug(f"Direct slug access failed: {e}")
+
+    # Strategy 2: Search Apple TV and filter results by slug match
     search_term = f"{title} {year}" if year else title
     encoded_term = quote_plus(search_term)
     search_url = f"https://tv.apple.com/us/search?term={encoded_term}"
@@ -520,6 +670,32 @@ def try_direct_slug_url(
     return None
 
 
+def _find_content_url_in_data(
+    data: Any, slug: str, media_type: str
+) -> str | None:
+    """Find a content URL containing the slug in serialized page data."""
+    if isinstance(data, dict):
+        for key in ["url", "canonicalUrl", "href", "link"]:
+            url_val = data.get(key, "")
+            if url_val and isinstance(url_val, str):
+                if f"/{media_type}/" in url_val and slug in url_val.lower():
+                    if "umc." in url_val:  # Has content ID
+                        if not url_val.startswith("http"):
+                            url_val = f"https://tv.apple.com{url_val}"
+                        return url_val
+        
+        for v in data.values():
+            result = _find_content_url_in_data(v, slug, media_type)
+            if result:
+                return result
+    elif isinstance(data, list):
+        for item in data:
+            result = _find_content_url_in_data(item, slug, media_type)
+            if result:
+                return result
+    return None
+
+
 def _find_url_by_slug_in_data(
     data: Any, slug: str, media_type: str, title: str
 ) -> str | None:
@@ -563,10 +739,11 @@ def search_for_trailer(
     """Search for a trailer for the given media item.
 
     Uses multiple search strategies with validation at each step:
-    1. Direct slug-based URL lookup (most reliable)
-    2. Apple TV API search with result validation  
-    3. Apple TV web search with result validation
-    4. iTunes API fallback with result validation
+    1. IMDB ID lookup (most reliable when available)
+    2. Direct slug-based URL lookup
+    3. Apple TV API search with result validation  
+    4. Apple TV web search with result validation
+    5. iTunes API fallback with result validation
     
     Each strategy validates the trailer's content title matches the search title
     before returning, to avoid downloading wrong trailers.
@@ -575,6 +752,17 @@ def search_for_trailer(
 
     if not exclude:
         exclude = []
+
+    # Strategy 0: Try IMDB ID lookup first (most reliable when available)
+    if media.imdb_id:
+        logger.debug(f"Trying IMDB lookup for: {media.imdb_id}")
+        content_url = lookup_by_imdb_id(media.imdb_id, media.is_movie)
+        if content_url:
+            trailer = _fetch_and_validate_trailer(
+                content_url, media.title, media.year, exclude
+            )
+            if trailer:
+                return trailer
 
     # Strategy 1: Try direct slug-based lookup first (most reliable)
     # This generates a URL from the title and validates content matches
