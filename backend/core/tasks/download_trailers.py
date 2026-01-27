@@ -37,14 +37,14 @@ def _download_trailer(
 
 
 def download_trailer_by_id(
-    media_id: int, profile_id: int, trailer_id: str = ""
+    media_id: int, profile_id: int, yt_id: str = ""
 ) -> str:
     """Download trailer for a media by ID with given profile.
     Schedules a background job to download it. \n
     Args:
         media_id (int): The ID of the media to download the trailer for.
         profile_id (int): The ID of the trailer profile to use.
-        trailer_id (str, optional): Apple TV ID of the trailer. Defaults to "".
+        yt_id (str, optional): Apple TV ID of the trailer. Defaults to "".
     Returns:
         str: Message indicating the status of the download.
     Raises:
@@ -69,11 +69,11 @@ def download_trailer_by_id(
     if not FilesHandler.check_folder_exists(media.folder_path):
         raise FolderNotFoundError(folder_path=media.folder_path)
 
-    if trailer_id:
-        # If trailer_id is provided, always use it,
+    if yt_id:
+        # If yt_id is provided, always use it,
         # disable retries as retries will download a different trailer
         retry_count = 0
-        media.youtube_trailer_id = trailer_id
+        media.youtube_trailer_id = yt_id
     elif profile.always_search:
         # If always search is enabled, do not use the id from the database
         media.youtube_trailer_id = None
@@ -91,8 +91,8 @@ def download_trailer_by_id(
     )
     msg = "Trailer download started in background for "
     msg += f"{_type}: '{media.title}' [{media_id}]"
-    if trailer_id:
-        msg += f" from ({trailer_id})"
+    if yt_id:
+        msg += f" from ({yt_id})"
 
     logger.info(msg)
     return msg
