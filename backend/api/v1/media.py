@@ -285,21 +285,21 @@ async def rescan_media_files(media_id: int) -> str:
     },
 )
 async def download_media_trailer(
-    media_id: int, profile_id: int, trailer_id: str = ""
+    media_id: int, profile_id: int, yt_id: str = ""
 ) -> str:
     """Download trailer for media by ID. \n
     Args:
         media_id (int): ID of the media item.
         profile_id (int): ID of the trailer profile to use for downloading.
-        trailer_id (str, Optional=""): Apple TV ID of the trailer.\n
+        yt_id (str, Optional=""): Apple TV ID of the trailer.\n
     Returns:
         str: Downloading trailer message.
     """
     msg = f"Downloading trailer for media with ID: [{media_id}]"
-    if trailer_id:
-        msg += f" from ({trailer_id})"
+    if yt_id:
+        msg += f" from ({yt_id})"
     logger.info(msg)
-    return download_trailer_by_id(media_id, profile_id, trailer_id)
+    return download_trailer_by_id(media_id, profile_id, yt_id)
 
 
 @media_router.post(
