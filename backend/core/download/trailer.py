@@ -11,11 +11,50 @@ from core.base.database.models.media import MediaRead, MonitorStatus
 from core.base.database.models.trailerprofile import TrailerProfileRead
 from core.download.trailers.service import record_new_trailer_download
 from core.download.apple.downloader import download_apple_trailer
-from core.download.apple.api import TrailerInfo
+from core.download.apple.api import TrailerInfo, AppleTVPlus
 from core.download import trailer_file, trailer_search, video_analysis
 from exceptions import DownloadFailedError
 
 logger = ModuleLogger("TrailersDownloader")
+
+
+def _get_trailer_from_manual_id(
+    apple_id: str, media_title: str
+) -> TrailerInfo | None:
+    """Get trailer info directly from a manually provided Apple TV ID/URL. \n
+    Args:
+        apple_id: Apple TV content ID (umc.xxx) or full URL.
+        media_title: The media title for logging purposes.
+    Returns:
+        TrailerInfo if found, None otherwise.
+    """
+    if not apple_id:
+        return None
+
+    # Construct URL if only ID is provided
+    if apple_id.startswith("umc."):
+        content_url = f"https://tv.apple.com/us/movie/-/{apple_id}"
+    elif apple_id.startswith("http"):
+        content_url = apple_id
+    else:
+        logger.warning(f"Invalid Apple TV ID format: {apple_id}")
+        return None
+
+    logger.info(
+        f"Using manually provided Apple TV URL for '{media_title}': {content_url}"
+    )
+
+    try:
+        atvp = AppleTVPlus()
+        trailers = atvp.get_trailers(content_url, default_only=True)
+        if trailers:
+            logger.info(f"Found trailer: {trailers[0].video_title}")
+            return trailers[0]
+        logger.warning(f"No trailer found at URL: {content_url}")
+    except Exception as e:
+        logger.error(f"Failed to fetch trailer from {content_url}: {e}")
+
+    return None
 
 
 def __update_media_status(
@@ -116,15 +155,30 @@ async def download_trailer(
     if not exclude:
         exclude = []
 
-    # Exclude the current trailer ID if it exists
-    if media.trailer_exists and media.youtube_trailer_id:
-        exclude.append(media.youtube_trailer_id)
+    trailer_info = None
 
-    # Search for trailer on Apple TV
-    trailer_info = trailer_search.get_trailer_info(media, profile, exclude)
+    # Strategy 1: If a manual Apple TV ID/URL was provided, use it directly
+    # This bypasses the unreliable search and uses the user's explicit choice
+    if media.youtube_trailer_id and not media.trailer_exists:
+        trailer_info = _get_trailer_from_manual_id(
+            media.youtube_trailer_id, media.title
+        )
+
+    # Strategy 2: Search for trailer on Apple TV if no manual ID or it failed
+    if not trailer_info:
+        # Exclude the current trailer ID if it exists (for re-download scenarios)
+        if media.trailer_exists and media.youtube_trailer_id:
+            exclude.append(media.youtube_trailer_id)
+
+        trailer_info = trailer_search.get_trailer_info(media, profile, exclude)
 
     if not trailer_info:
-        raise DownloadFailedError(f"No trailer found for '{media.title}'")
+        error_msg = (
+            f"No trailer found for '{media.title}'. "
+            "Try providing the Apple TV URL manually (e.g., "
+            "https://tv.apple.com/us/movie/movie-name/umc.cmc.xxx)"
+        )
+        raise DownloadFailedError(error_msg)
 
     apple_id = trailer_info.apple_id or ""
 
