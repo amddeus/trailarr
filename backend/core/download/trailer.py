@@ -3,6 +3,7 @@
 from datetime import datetime, timezone
 import os
 
+import requests
 from api.v1 import websockets
 from app_logger import ModuleLogger
 import core.base.database.manager.media as media_manager
@@ -21,10 +22,15 @@ logger = ModuleLogger("TrailersDownloader")
 def _get_trailer_from_manual_id(
     apple_id: str, media_title: str
 ) -> TrailerInfo | None:
-    """Get trailer info directly from a manually provided Apple TV ID/URL. \n
+    """Get trailer info directly from a manually provided Apple TV ID/URL.
+
+    This function is used when the user explicitly provides an Apple TV
+    content ID or URL, bypassing the unreliable auto-search.
+
     Args:
-        apple_id: Apple TV content ID (umc.xxx) or full URL.
+        apple_id: Apple TV content ID (umc.cmc.xxx) or full URL.
         media_title: The media title for logging purposes.
+
     Returns:
         TrailerInfo if found, None otherwise.
     """
@@ -51,8 +57,10 @@ def _get_trailer_from_manual_id(
             logger.info(f"Found trailer: {trailers[0].video_title}")
             return trailers[0]
         logger.warning(f"No trailer found at URL: {content_url}")
-    except Exception as e:
+    except (requests.RequestException, ValueError, KeyError) as e:
         logger.error(f"Failed to fetch trailer from {content_url}: {e}")
+    except Exception as e:
+        logger.exception(f"Unexpected error fetching trailer from {content_url}: {e}")
 
     return None
 
@@ -156,18 +164,23 @@ async def download_trailer(
         exclude = []
 
     trailer_info = None
+    manual_id_provided = False
 
     # Strategy 1: If a manual Apple TV ID/URL was provided, use it directly
     # This bypasses the unreliable search and uses the user's explicit choice
-    if media.youtube_trailer_id and not media.trailer_exists:
-        trailer_info = _get_trailer_from_manual_id(
-            media.youtube_trailer_id, media.title
-        )
+    # Note: youtube_trailer_id field is repurposed for Apple TV IDs
+    if media.youtube_trailer_id:
+        # Check if this is a manually provided ID (starts with umc. or http)
+        # vs an existing stored ID from a previous download
+        apple_id = media.youtube_trailer_id
+        if apple_id.startswith("umc.") or apple_id.startswith("http"):
+            manual_id_provided = True
+            trailer_info = _get_trailer_from_manual_id(apple_id, media.title)
 
     # Strategy 2: Search for trailer on Apple TV if no manual ID or it failed
     if not trailer_info:
-        # Exclude the current trailer ID if it exists (for re-download scenarios)
-        if media.trailer_exists and media.youtube_trailer_id:
+        # Only exclude the current trailer ID for re-downloads (not for manual IDs)
+        if media.trailer_exists and media.youtube_trailer_id and not manual_id_provided:
             exclude.append(media.youtube_trailer_id)
 
         trailer_info = trailer_search.get_trailer_info(media, profile, exclude)
