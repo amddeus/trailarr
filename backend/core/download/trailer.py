@@ -20,7 +20,7 @@ logger = ModuleLogger("TrailersDownloader")
 
 
 def _get_trailer_from_manual_id(
-    apple_id: str, media_title: str
+    apple_id: str, media_title: str, is_movie: bool = True
 ) -> TrailerInfo | None:
     """Get trailer info directly from a manually provided Apple TV ID/URL.
 
@@ -30,6 +30,7 @@ def _get_trailer_from_manual_id(
     Args:
         apple_id: Apple TV content ID (umc.cmc.xxx) or full URL.
         media_title: The media title for logging purposes.
+        is_movie: Whether this is a movie (True) or TV show (False).
 
     Returns:
         TrailerInfo if found, None otherwise.
@@ -39,7 +40,8 @@ def _get_trailer_from_manual_id(
 
     # Construct URL if only ID is provided
     if apple_id.startswith("umc."):
-        content_url = f"https://tv.apple.com/us/movie/-/{apple_id}"
+        media_type = "movie" if is_movie else "show"
+        content_url = f"https://tv.apple.com/us/{media_type}/-/{apple_id}"
     elif apple_id.startswith("http"):
         content_url = apple_id
     else:
@@ -175,7 +177,9 @@ async def download_trailer(
         apple_id = media.youtube_trailer_id
         if apple_id.startswith("umc.") or apple_id.startswith("http"):
             manual_id_provided = True
-            trailer_info = _get_trailer_from_manual_id(apple_id, media.title)
+            trailer_info = _get_trailer_from_manual_id(
+                apple_id, media.title, media.is_movie
+            )
 
     # Strategy 2: Search for trailer on Apple TV if no manual ID or it failed
     if not trailer_info:
