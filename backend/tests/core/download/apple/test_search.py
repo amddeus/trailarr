@@ -6,9 +6,39 @@ from core.download.apple.search import (
     _titles_match,
     _title_to_slug,
     _calculate_match_score,
+    _slug_in_url,
     lookup_by_imdb_id,
     _find_content_url_in_data,
 )
+
+
+class TestSlugInUrl:
+    """Tests for _slug_in_url function."""
+
+    @pytest.mark.parametrize(
+        "slug,url,expected",
+        [
+            # Valid matches - slug as a path segment
+            ("test-movie", "/us/movie/test-movie/umc.123", True),
+            ("predator-badlands", "/us/movie/predator-badlands/umc.cmc.5k", True),
+            ("tron-ares", "https://tv.apple.com/us/movie/tron-ares/umc.cmc.abc", True),
+            ("the-batman", "/us/movie/the-batman/", True),
+            # End of URL (no trailing slash)
+            ("test-movie", "/us/movie/test-movie", True),
+            # False positives that should NOT match
+            ("man", "/us/movie/superman/umc.123", False),  # "man" in "superman"
+            ("man", "/us/movie/batman/umc.123", False),  # "man" in "batman"
+            ("bad", "/us/movie/badlands/umc.123", False),  # "bad" in "badlands"
+            ("land", "/us/movie/badlands/umc.123", False),  # "land" in "badlands"
+            # Edge cases
+            ("test", "/us/movie/testing/umc.123", False),  # "test" in "testing"
+            ("", "/us/movie/anything/umc.123", False),  # Empty slug
+        ],
+    )
+    def test_slug_in_url(self, slug, url, expected):
+        """Test slug matching in URLs prevents false positives."""
+        result = _slug_in_url(slug, url)
+        assert result == expected, f"Expected {expected} for slug '{slug}' in URL '{url}'"
 
 
 class TestNormalizeTitle:

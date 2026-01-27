@@ -21,6 +21,21 @@ logger = ModuleLogger("AppleTrailerSearch")
 MINIMUM_TITLE_MATCH_SCORE = 50
 
 
+def _slug_in_url(slug: str, url: str) -> bool:
+    """Check if a slug appears as a complete path segment in a URL.
+    
+    This prevents false positives like "man" matching "superman" or "batman".
+    The slug must be surrounded by "/" characters to be a valid match.
+    """
+    url_lower = url.lower()
+    # Check for slug as a path segment (surrounded by slashes or end of URL)
+    if f"/{slug}/" in url_lower:
+        return True
+    if url_lower.endswith(f"/{slug}"):
+        return True
+    return False
+
+
 def _title_to_slug(title: str) -> str:
     """Convert a title to a URL-friendly slug like Apple TV uses.
     
@@ -315,30 +330,27 @@ def search_apple_itunes(
 def lookup_by_imdb_id(imdb_id: str, is_movie: bool = True) -> str | None:
     """Try to find Apple TV content URL using IMDB ID.
     
-    Uses the iTunes lookup API to find content by IMDB ID.
-    This is the most reliable method when an IMDB ID is available.
+    Searches Apple TV using the IMDB ID as a search term. When IMDB IDs are
+    available, this can help find content more reliably than title-based search.
     """
     if not imdb_id:
         return None
     
     logger.debug(f"Looking up Apple TV content by IMDB ID: {imdb_id}")
     
-    # iTunes lookup doesn't support IMDB ID directly, but we can search
-    # for it using the ID as a search term (sometimes works)
-    # We'll also try the Apple TV direct search with IMDB
-    
-    # Strategy 1: Try Apple TV search with IMDB ID
     search_url = f"https://tv.apple.com/us/search?term={imdb_id}"
     
     try:
         response = requests.get(search_url, headers=HEADERS, timeout=30)
         if response.status_code != 200:
+            logger.warning("SSL verification failed, retrying without verification")
             response = requests.get(
                 search_url, headers=HEADERS, timeout=30, verify=False
             )
         
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, "html.parser")
+            media_type = "movie" if is_movie else "show"
             
             # Look for embedded JSON data
             script_tag = soup.find(
@@ -349,30 +361,8 @@ def lookup_by_imdb_id(imdb_id: str, is_movie: bool = True) -> str | None:
             if script_tag:
                 try:
                     data = json.loads(script_tag.text)
-                    media_type = "movie" if is_movie else "show"
-                    
-                    # Search for any content URL in the results
-                    def find_first_content_url(obj: Any) -> str | None:
-                        if isinstance(obj, dict):
-                            for key in ["url", "canonicalUrl"]:
-                                url_val = obj.get(key, "")
-                                if url_val and f"/{media_type}/" in url_val:
-                                    if "umc." in url_val:
-                                        if not url_val.startswith("http"):
-                                            url_val = f"https://tv.apple.com{url_val}"
-                                        return url_val
-                            for v in obj.values():
-                                result = find_first_content_url(v)
-                                if result:
-                                    return result
-                        elif isinstance(obj, list):
-                            for item in obj:
-                                result = find_first_content_url(item)
-                                if result:
-                                    return result
-                        return None
-                    
-                    url = find_first_content_url(data)
+                    # Use helper to find first content URL (no slug filter for IMDB search)
+                    url = _find_first_content_url(data, media_type)
                     if url:
                         logger.debug(f"Found URL via IMDB search: {url}")
                         return url
@@ -380,7 +370,6 @@ def lookup_by_imdb_id(imdb_id: str, is_movie: bool = True) -> str | None:
                     pass
             
             # Also check for direct links in the page
-            media_type = "movie" if is_movie else "show"
             links = soup.find_all("a", href=True)
             for link in links:
                 href = link.get("href", "")
@@ -393,6 +382,27 @@ def lookup_by_imdb_id(imdb_id: str, is_movie: bool = True) -> str | None:
     except Exception as e:
         logger.debug(f"IMDB lookup failed: {e}")
     
+    return None
+
+
+def _find_first_content_url(data: Any, media_type: str) -> str | None:
+    """Find the first content URL in serialized page data (no slug filter)."""
+    if isinstance(data, dict):
+        for key in ["url", "canonicalUrl"]:
+            url_val = data.get(key, "")
+            if url_val and f"/{media_type}/" in url_val and "umc." in url_val:
+                if not url_val.startswith("http"):
+                    url_val = f"https://tv.apple.com{url_val}"
+                return url_val
+        for v in data.values():
+            result = _find_first_content_url(v, media_type)
+            if result:
+                return result
+    elif isinstance(data, list):
+        for item in data:
+            result = _find_first_content_url(item, media_type)
+            if result:
+                return result
     return None
 
 
@@ -619,8 +629,8 @@ def try_direct_slug_url(
         links = soup.find_all("a", href=True)
         for link in links:
             href = link.get("href", "")
-            # Check if the URL matches our expected pattern with the slug
-            if f"/us/{media_type}/" in href and slug in href.lower():
+            # Check if the URL matches our expected pattern with the slug as a path segment
+            if f"/us/{media_type}/" in href and _slug_in_url(slug, href):
                 if not href.startswith("http"):
                     href = f"https://tv.apple.com{href}"
                 
@@ -678,7 +688,7 @@ def _find_content_url_in_data(
         for key in ["url", "canonicalUrl", "href", "link"]:
             url_val = data.get(key, "")
             if url_val and isinstance(url_val, str):
-                if f"/{media_type}/" in url_val and slug in url_val.lower():
+                if f"/{media_type}/" in url_val and _slug_in_url(slug, url_val):
                     if "umc." in url_val:  # Has content ID
                         if not url_val.startswith("http"):
                             url_val = f"https://tv.apple.com{url_val}"
@@ -705,7 +715,7 @@ def _find_url_by_slug_in_data(
         for key in ["url", "canonicalUrl", "href"]:
             url_val = data.get(key, "")
             if url_val and isinstance(url_val, str):
-                if f"/{media_type}/" in url_val and slug in url_val.lower():
+                if f"/{media_type}/" in url_val and _slug_in_url(slug, url_val):
                     # Also verify title if present
                     item_title = data.get("title", "")
                     if item_title:
