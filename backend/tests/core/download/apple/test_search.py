@@ -9,6 +9,7 @@ from core.download.apple.search import (
     _slug_in_url,
     lookup_by_imdb_id,
     _find_content_url_in_data,
+    search_web_for_apple_tv_url,
 )
 
 
@@ -202,3 +203,85 @@ class TestFindContentUrlInData:
         data = {"url": "/us/movie/test-movie/"}
         result = _find_content_url_in_data(data, "test-movie", "movie")
         assert result is None  # No umc. in URL
+
+
+class TestSearchWebForAppleTvUrl:
+    """Tests for search_web_for_apple_tv_url function."""
+
+    def test_empty_title_returns_none(self):
+        """Test that empty title returns None quickly."""
+        result = search_web_for_apple_tv_url("", 0, True)
+        assert result is None
+
+    def test_returns_none_on_http_error(self, mocker):
+        """Test that HTTP errors are handled gracefully."""
+        mock_get = mocker.patch("core.download.apple.search.requests.get")
+        mock_get.return_value.status_code = 500
+
+        result = search_web_for_apple_tv_url("Test Movie", 2024, True)
+        assert result is None
+
+    def test_extracts_apple_tv_url_from_search_results(self, mocker):
+        """Test URL extraction from DuckDuckGo search results."""
+        # Mock HTML response from DuckDuckGo with Apple TV URL
+        html_response = '''
+        <html>
+        <body>
+        <a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Ftv.apple.com%2Fus%2Fmovie%2Ftest-movie%2Fumc.cmc.abc123">
+            Test Movie - Apple TV
+        </a>
+        </body>
+        </html>
+        '''
+        mock_response = mocker.MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = html_response
+
+        mock_get = mocker.patch("core.download.apple.search.requests.get")
+        mock_get.return_value = mock_response
+
+        result = search_web_for_apple_tv_url("Test Movie", 2024, True)
+        assert result == "https://tv.apple.com/us/movie/test-movie/umc.cmc.abc123"
+
+    def test_filters_by_slug_to_avoid_wrong_movies(self, mocker):
+        """Test that results not matching the slug are filtered out."""
+        # Response contains URL for a different movie
+        html_response = '''
+        <html>
+        <body>
+        <a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Ftv.apple.com%2Fus%2Fmovie%2Fdifferent-movie%2Fumc.cmc.abc123">
+            Different Movie - Apple TV
+        </a>
+        </body>
+        </html>
+        '''
+        mock_response = mocker.MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = html_response
+
+        mock_get = mocker.patch("core.download.apple.search.requests.get")
+        mock_get.return_value = mock_response
+
+        result = search_web_for_apple_tv_url("Test Movie", 2024, True)
+        assert result is None
+
+    def test_handles_show_type_correctly(self, mocker):
+        """Test that show type uses correct URL pattern."""
+        html_response = '''
+        <html>
+        <body>
+        <a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Ftv.apple.com%2Fus%2Fshow%2Ftest-show%2Fumc.cmc.abc123">
+            Test Show - Apple TV
+        </a>
+        </body>
+        </html>
+        '''
+        mock_response = mocker.MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = html_response
+
+        mock_get = mocker.patch("core.download.apple.search.requests.get")
+        mock_get.return_value = mock_response
+
+        result = search_web_for_apple_tv_url("Test Show", 2024, is_movie=False)
+        assert result == "https://tv.apple.com/us/show/test-show/umc.cmc.abc123"

@@ -4,7 +4,7 @@ import json
 import re
 from datetime import datetime
 from typing import Any
-from urllib.parse import quote_plus, urlparse
+from urllib.parse import quote_plus, unquote, urlparse
 from unicodedata import normalize
 
 import requests
@@ -742,6 +742,123 @@ def _find_url_by_slug_in_data(
     return None
 
 
+def _extract_url_from_ddg_redirect(href: str) -> str:
+    """Extract the actual URL from a DuckDuckGo redirect link.
+    
+    DuckDuckGo wraps result URLs in redirect links with the actual URL
+    in a 'uddg' query parameter.
+    """
+    if "uddg=" in href:
+        match = re.search(r"uddg=([^&]+)", href)
+        if match:
+            return unquote(match.group(1))
+    return href
+
+
+def _is_valid_apple_tv_url(
+    href: str, media_type: str, slug: str
+) -> bool:
+    """Check if a URL is a valid Apple TV content URL matching the expected slug.
+    
+    Uses proper URL parsing to validate the hostname to prevent
+    bypasses like 'http://evil.com/tv.apple.com/'.
+    """
+    try:
+        parsed = urlparse(href)
+        # Verify the hostname is exactly tv.apple.com
+        if parsed.netloc != "tv.apple.com":
+            return False
+        # Check path contains required components
+        if f"/{media_type}/" not in parsed.path:
+            return False
+        if "umc." not in parsed.path:
+            return False
+        # Verify the slug matches
+        return _slug_in_url(slug, parsed.path)
+    except Exception:
+        return False
+
+
+def search_web_for_apple_tv_url(
+    title: str, year: int = 0, is_movie: bool = True
+) -> str | None:
+    """Search the web for Apple TV content URL using DuckDuckGo.
+
+    This is a fallback strategy for when Apple TV's own search doesn't index
+    the content yet (common for upcoming/unreleased movies that have trailer
+    pages but aren't searchable).
+
+    Args:
+        title: The movie or show title to search for.
+        year: The release year (optional, helps narrow results).
+        is_movie: Whether searching for a movie (True) or show (False).
+
+    Returns:
+        Apple TV URL if found, None otherwise.
+    """
+    if not title:
+        return None
+
+    logger.debug(f"Searching web for Apple TV URL: {title} ({year})")
+
+    media_type = "movie" if is_movie else "show"
+    search_term = f"{title} {year}" if year else title
+    query = quote_plus(f"site:tv.apple.com/us/{media_type} {search_term}")
+    search_url = f"https://html.duckduckgo.com/html/?q={query}"
+
+    search_headers = {
+        "User-Agent": HEADERS["user-agent"],
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Referer": "https://duckduckgo.com/",
+    }
+
+    try:
+        response = requests.get(
+            search_url,
+            headers=search_headers,
+            timeout=30,
+        )
+        # Accept both 200 and 202 as potentially valid responses
+        if response.status_code not in (200, 202):
+            logger.debug(f"Web search returned status {response.status_code}")
+            return None
+
+        soup = BeautifulSoup(response.text, "html.parser")
+        slug = _title_to_slug(title)
+
+        # Look for result links containing Apple TV URLs
+        for link in soup.find_all("a", class_="result__a"):
+            href = _extract_url_from_ddg_redirect(link.get("href", ""))
+            if _is_valid_apple_tv_url(href, media_type, slug):
+                logger.debug(f"Found Apple TV URL via web search: {href}")
+                return href
+
+        # Also check result URL display text
+        for link in soup.find_all("a", class_="result__url"):
+            text = link.get_text().strip()
+            # Ensure we have a proper URL format
+            if not text.startswith("http"):
+                text = f"https://{text}"
+            # Use the same validated URL check
+            if _is_valid_apple_tv_url(text, media_type, slug):
+                logger.debug(f"Found Apple TV URL via web search: {text}")
+                return text
+
+        # Try alternative pattern: look for any links with Apple TV URLs
+        for link in soup.find_all("a", href=True):
+            href = _extract_url_from_ddg_redirect(link.get("href", ""))
+            if _is_valid_apple_tv_url(href, media_type, slug):
+                logger.debug(f"Found Apple TV URL via web search: {href}")
+                return href
+
+    except Exception as e:
+        logger.debug(f"Web search failed: {e}")
+
+    return None
+
+
 def search_for_trailer(
     media: MediaRead,
     exclude: list[str] | None = None,
@@ -754,7 +871,8 @@ def search_for_trailer(
     3. Apple TV API search with result validation  
     4. Apple TV web search with result validation
     5. iTunes API fallback with result validation
-    
+    6. Web search fallback for content not yet indexed in Apple TV search
+
     Each strategy validates the trailer's content title matches the search title
     before returning, to avoid downloading wrong trailers.
     """
@@ -836,6 +954,18 @@ def search_for_trailer(
             )
             if trailer:
                 return trailer
+
+    # Strategy 6: Web search fallback for content not indexed in Apple TV search
+    # This helps find movies that exist on Apple TV but aren't in their search yet
+    content_url = search_web_for_apple_tv_url(
+        media.title, media.year, media.is_movie
+    )
+    if content_url:
+        trailer = _fetch_and_validate_trailer(
+            content_url, media.title, media.year, exclude
+        )
+        if trailer:
+            return trailer
 
     logger.warning(f"No Apple TV content found for '{media.title}' [{media.id}]")
     return None
