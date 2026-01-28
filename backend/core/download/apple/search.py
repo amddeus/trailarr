@@ -758,13 +758,25 @@ def _extract_url_from_ddg_redirect(href: str) -> str:
 def _is_valid_apple_tv_url(
     href: str, media_type: str, slug: str
 ) -> bool:
-    """Check if a URL is a valid Apple TV content URL matching the expected slug."""
-    return (
-        "tv.apple.com" in href
-        and f"/{media_type}/" in href
-        and "umc." in href
-        and _slug_in_url(slug, href)
-    )
+    """Check if a URL is a valid Apple TV content URL matching the expected slug.
+    
+    Uses proper URL parsing to validate the hostname to prevent
+    bypasses like 'http://evil.com/tv.apple.com/'.
+    """
+    try:
+        parsed = urlparse(href)
+        # Verify the hostname is exactly tv.apple.com
+        if parsed.netloc != "tv.apple.com":
+            return False
+        # Check path contains required components
+        if f"/{media_type}/" not in parsed.path:
+            return False
+        if "umc." not in parsed.path:
+            return False
+        # Verify the slug matches
+        return _slug_in_url(slug, parsed.path)
+    except Exception:
+        return False
 
 
 def search_web_for_apple_tv_url(
@@ -826,12 +838,13 @@ def search_web_for_apple_tv_url(
         # Also check result URL display text
         for link in soup.find_all("a", class_="result__url"):
             text = link.get_text().strip()
-            if "tv.apple.com" in text and f"/{media_type}/" in text:
-                if not text.startswith("http"):
-                    text = f"https://{text}"
-                if "umc." in text and _slug_in_url(slug, text):
-                    logger.debug(f"Found Apple TV URL via web search: {text}")
-                    return text
+            # Ensure we have a proper URL format
+            if not text.startswith("http"):
+                text = f"https://{text}"
+            # Use the same validated URL check
+            if _is_valid_apple_tv_url(text, media_type, slug):
+                logger.debug(f"Found Apple TV URL via web search: {text}")
+                return text
 
         # Try alternative pattern: look for any links with Apple TV URLs
         for link in soup.find_all("a", href=True):
