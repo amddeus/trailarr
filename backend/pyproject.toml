@@ -12,11 +12,13 @@ dependencies = [
     "apscheduler==3.11.2",
     "async-lru==2.0.5",
     "bcrypt==5.0.0",
+    "beautifulsoup4==4.12.3",
     "fastapi[standard-no-fastapi-cloud-cli]==0.128.0",
+    "m3u8==4.0.0",
     "pillow==12.1.0",
     "pytz>=2025.2",
+    "requests==2.32.3",
     "sqlmodel==0.0.31",
-    "yt-dlp[curl-cffi,default]==2025.12.8",
 ]
 
 [dependency-groups]

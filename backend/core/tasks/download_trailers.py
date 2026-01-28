@@ -44,7 +44,7 @@ def download_trailer_by_id(
     Args:
         media_id (int): The ID of the media to download the trailer for.
         profile_id (int): The ID of the trailer profile to use.
-        yt_id (str, optional): YouTube ID of the trailer. Defaults to "".
+        yt_id (str, optional): Apple TV ID of the trailer. Defaults to "".
     Returns:
         str: Message indicating the status of the download.
     Raises:
