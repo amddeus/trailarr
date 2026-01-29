@@ -14,6 +14,7 @@ from core.download.trailers.service import record_new_trailer_download
 from core.download.apple.downloader import download_apple_trailer
 from core.download.apple.api import TrailerInfo, AppleTVPlus
 from core.download import trailer_file, trailer_search, video_analysis
+from core.mediaserver.notification import notify_media_servers
 from exceptions import DownloadFailedError
 
 logger = ModuleLogger("TrailersDownloader")
@@ -222,6 +223,10 @@ async def download_trailer(
         await record_new_trailer_download(
             media, profile.id, final_path, apple_id
         )
+
+        # Notify media servers to refresh their libraries
+        folder_path = os.path.dirname(final_path)
+        await notify_media_servers(folder_path)
 
         msg = (
             f"Trailer downloaded successfully for '{media.title}' [{media.id}]"
