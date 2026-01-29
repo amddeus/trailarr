@@ -25,17 +25,4 @@ export class ShowMediaServersComponent {
   protected readonly RouteAdd = RouteAdd;
   protected readonly RouteMediaServers = RouteMediaServers;
   protected readonly RouteSettings = RouteSettings;
-
-  getServerTypeLogo(serverType: string): string {
-    switch (serverType) {
-      case 'emby':
-        return 'assets/trailarr-64.png';
-      case 'jellyfin':
-        return 'assets/trailarr-64.png';
-      case 'plex':
-        return 'assets/trailarr-64.png';
-      default:
-        return 'assets/trailarr-64.png';
-    }
-  }
 }

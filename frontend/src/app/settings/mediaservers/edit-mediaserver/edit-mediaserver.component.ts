@@ -65,7 +65,7 @@ export class EditMediaServerComponent {
   mediaServer = this.mediaServerService.selectedMediaServer;
   isLoading = this.mediaServerService.mediaServersResource.isLoading;
 
-  mediaServerIDeffect = effect(() => {
+  mediaServerIdEffect = effect(() => {
     const id = this.mediaServerId();
     if (this.isLoading()) {
       return;
