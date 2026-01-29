@@ -29,6 +29,14 @@ exports[`SettingsComponent > renders 1`] = `
     <a
       _ngcontent-a-c3519004422=""
       class="setnav-btn"
+      href="/mediaservers"
+      routerlinkactive="active"
+    >
+      Media Servers
+    </a>
+    <a
+      _ngcontent-a-c3519004422=""
+      class="setnav-btn"
       href="/profiles"
       routerlinkactive="active"
     >

@@ -5,6 +5,7 @@ export const RouteEdit = 'edit';
 export const RouteHome = 'home';
 export const RouteLogs = 'logs';
 export const RouteMedia = 'media';
+export const RouteMediaServers = 'mediaservers';
 export const RouteMovies = 'movies';
 export const RouteProfiles = 'profiles';
 export const RouteSeries = 'series';
@@ -14,4 +15,5 @@ export const RouteGeneral = 'general';
 
 export const RouteParamConnectionId = 'connectionId';
 export const RouteParamMediaId = 'mediaId';
+export const RouteParamMediaServerId = 'mediaServerId';
 export const RouteParamProfileId = 'profileId';

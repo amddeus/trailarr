@@ -1,6 +1,6 @@
 import {ChangeDetectionStrategy, Component} from '@angular/core';
 import {RouterLink, RouterLinkActive, RouterOutlet} from '@angular/router';
-import {RouteAbout, RouteConnections, RouteGeneral, RouteProfiles} from 'src/routing';
+import {RouteAbout, RouteConnections, RouteGeneral, RouteMediaServers, RouteProfiles} from 'src/routing';
 
 @Component({
   selector: 'app-settings',
@@ -12,6 +12,7 @@ import {RouteAbout, RouteConnections, RouteGeneral, RouteProfiles} from 'src/rou
 export class SettingsComponent {
   protected readonly RouteAbout = RouteAbout;
   protected readonly RouteConnections = RouteConnections;
+  protected readonly RouteMediaServers = RouteMediaServers;
   protected readonly RouteProfiles = RouteProfiles;
   protected readonly RouteGeneral = RouteGeneral;
 }
