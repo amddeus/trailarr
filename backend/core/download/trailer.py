@@ -13,6 +13,7 @@ from core.base.database.models.trailerprofile import TrailerProfileRead
 from core.download.trailers.service import record_new_trailer_download
 from core.download.apple.downloader import download_apple_trailer
 from core.download.apple.api import TrailerInfo, AppleTVPlus
+from core.download.apple.search import _title_to_slug
 from core.download import trailer_file, trailer_search, video_analysis
 from exceptions import DownloadFailedError
 
@@ -41,7 +42,8 @@ def _get_trailer_from_manual_id(
     # Construct URL if only ID is provided
     if apple_id.startswith("umc."):
         media_type = "movie" if is_movie else "show"
-        content_url = f"https://tv.apple.com/us/{media_type}/-/{apple_id}"
+        slug = _title_to_slug(media_title)
+        content_url = f"https://tv.apple.com/us/{media_type}/{slug}/{apple_id}"
     elif apple_id.startswith("http"):
         content_url = apple_id
     else:
