@@ -4,7 +4,9 @@ import {
   RouteAdd,
   RouteConnections,
   RouteGeneral,
+  RouteMediaServers,
   RouteParamConnectionId,
+  RouteParamMediaServerId,
   RouteParamProfileId,
   RouteProfiles,
 } from 'src/routing';
@@ -12,6 +14,8 @@ import {AboutComponent} from './about/about.component';
 import {EditConnectionComponent} from './connections/edit-connection/edit-connection.component';
 import {ShowConnectionsComponent} from './connections/show-connections/show-connections.component';
 import {GeneralComponent} from './general/general.component';
+import {EditMediaServerComponent} from './mediaservers/edit-mediaserver/edit-mediaserver.component';
+import {ShowMediaServersComponent} from './mediaservers/show-mediaservers/show-mediaservers.component';
 import {EditProfileComponent} from './profiles/edit-profile/edit-profile.component';
 import {ShowProfilesComponent} from './profiles/show-profiles/show-profiles.component';
 import {SettingsComponent} from './settings.component';
@@ -24,6 +28,9 @@ export default [
       {path: RouteConnections, component: ShowConnectionsComponent},
       {path: `${RouteConnections}/${RouteAdd}`, component: EditConnectionComponent},
       {path: `${RouteConnections}/:${RouteParamConnectionId}`, component: EditConnectionComponent},
+      {path: RouteMediaServers, component: ShowMediaServersComponent},
+      {path: `${RouteMediaServers}/${RouteAdd}`, component: EditMediaServerComponent},
+      {path: `${RouteMediaServers}/:${RouteParamMediaServerId}`, component: EditMediaServerComponent},
       {path: RouteProfiles, component: ShowProfilesComponent},
       {path: `${RouteProfiles}/:${RouteParamProfileId}`, component: EditProfileComponent},
       {path: RouteGeneral, component: GeneralComponent},

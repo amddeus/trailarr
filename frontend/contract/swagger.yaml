@@ -10,7 +10,7 @@ info:
   license:
     name: GNU GPL 3.0
     url: https://github.com/nandyalu/trailarr/blob/main/LICENSE
-  version: 0.6.7
+  version: 0.0.0
 servers:
   - url: /
     description: Current host
@@ -1886,7 +1886,7 @@ paths:
       description: "Download trailer for media by ID. \n\n\n\n## Args\n\n- **media_id**\
         \ (__int__): ID of the media item.\n- **profile_id** (__int__): ID of the\
         \ trailer profile to use for downloading.\n- **yt_id** (__str, Optional=\"\
-        \"__): YouTube ID of the trailer.\n\n\n\n## Returns\n\n- **str**: Downloading\
+        \"__): Apple TV ID of the trailer.\n\n\n\n## Returns\n\n- **str**: Downloading\
         \ trailer message."
       operationId: download_media_trailer_api_v1_media__media_id__download_post
       security:
@@ -2003,11 +2003,12 @@ paths:
     post:
       tags:
         - Media
-      summary: Update Yt Id
-      description: "Update YouTube ID for media by ID. \n\n\n\n## Args\n\n- **media_id**\
-        \ (__int__): ID of the media item.\n- **yt_id** (__str__): YouTube ID of the\
-        \ trailer.\n\n\n\n## Returns\n\n- **str**: Updating YouTube ID message."
-      operationId: update_yt_id_api_v1_media__media_id__update_post
+      summary: Update Trailer Id
+      description: "Update Apple TV trailer ID for media by ID. \n\n\n\n## Args\n\n\
+        - **media_id** (__int__): ID of the media item.\n- **trailer_id** (__str__):\
+        \ Apple TV ID of the trailer.\n\n\n\n## Returns\n\n- **str**: Updating trailer\
+        \ ID message."
+      operationId: update_trailer_id_api_v1_media__media_id__update_post
       security:
         - APIKeyQuery: []
         - APIKeyHeader: []
@@ -2018,12 +2019,12 @@ paths:
           schema:
             type: integer
             title: Media Id
-        - name: yt_id
+        - name: trailer_id
           in: query
           required: true
           schema:
             type: string
-            title: Yt Id
+            title: Trailer Id
         - name: trailarr_api_key
           in: cookie
           required: false
@@ -2039,7 +2040,7 @@ paths:
             application/json:
               schema:
                 type: string
-                title: Response Update Yt Id Api V1 Media  Media Id  Update Post
+                title: Response Update Trailer Id Api V1 Media  Media Id  Update Post
         '401':
           description: API key is missing
         '404':
@@ -2049,7 +2050,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '406':
-          description: Invalid YouTube URL/ID
+          description: Invalid Apple TV ID
           content:
             application/json:
               schema:
@@ -2067,7 +2068,7 @@ paths:
       summary: Search For Trailer
       description: "Search for trailer for media by ID. \n\n\n\n## Args\n\n- **media_id**\
         \ (__int__): ID of the media item.\n- **profile_id** (__int__): ID of the\
-        \ trailer profile to use.\n\n\n\n## Returns\n\n- **str**: Youtube ID of the\
+        \ trailer profile to use.\n\n\n\n## Returns\n\n- **str**: Apple TV ID of the\
         \ trailer if found, else empty string."
       operationId: search_for_trailer_api_v1_media__media_id__search_post
       security:
@@ -2207,6 +2208,358 @@ paths:
           description: API key is missing
         '404':
           description: Media Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/mediaservers/:
+    get:
+      tags:
+        - Media Servers
+      summary: Get Media Servers
+      description: "Get all media servers. \n\n\n\n## Returns\n\n- **list[MediaServerRead]**:\
+        \ List of all media servers."
+      operationId: get_media_servers_api_v1_mediaservers__get
+      security:
+        - APIKeyQuery: []
+        - APIKeyHeader: []
+      parameters:
+        - name: trailarr_api_key
+          in: cookie
+          required: false
+          schema:
+            anyOf:
+              - type: string
+              - type: 'null'
+            title: Trailarr Api Key
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MediaServerRead'
+                title: Response Get Media Servers Api V1 Mediaservers  Get
+        '401':
+          description: API key is missing
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+        - Media Servers
+      summary: Create Media Server
+      description: "Create a new media server. \n\n\n\n## Args\n\n- **mediaserver**\
+        \ (__MediaServerCreate__): The media server configuration.\n\n\n\n## Returns\n\
+        \n- **MediaServerRead**: The created media server.\n\n\n\n## Raises\n\n- **HTTPException**:\
+        \ If creation fails."
+      operationId: create_media_server_api_v1_mediaservers__post
+      security:
+        - APIKeyQuery: []
+        - APIKeyHeader: []
+      parameters:
+        - name: trailarr_api_key
+          in: cookie
+          required: false
+          schema:
+            anyOf:
+              - type: string
+              - type: 'null'
+            title: Trailarr Api Key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MediaServerCreate'
+      responses:
+        '201':
+          description: Media Server Created Successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaServerRead'
+        '401':
+          description: API key is missing
+        '400':
+          description: Failed to Create Media Server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/mediaservers/test:
+    post:
+      tags:
+        - Media Servers
+      summary: Test Media Server
+      description: "Test a media server connection. \n\n\n\n## Args\n\n- **mediaserver**\
+        \ (__MediaServerCreate__): The media server configuration to test.\n\n\n\n\
+        ## Returns\n\n- **str**: Success message with server info.\n\n\n\n## Raises\n\
+        \n- **HTTPException**: If the connection fails."
+      operationId: test_media_server_api_v1_mediaservers_test_post
+      security:
+        - APIKeyQuery: []
+        - APIKeyHeader: []
+      parameters:
+        - name: trailarr_api_key
+          in: cookie
+          required: false
+          schema:
+            anyOf:
+              - type: string
+              - type: 'null'
+            title: Trailarr Api Key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MediaServerCreate'
+      responses:
+        '200':
+          description: Media Server Connection Successful
+          content:
+            application/json:
+              schema:
+                type: string
+                title: Response Test Media Server Api V1 Mediaservers Test Post
+        '401':
+          description: API key is missing
+        '400':
+          description: Connection Failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/mediaservers/{mediaserver_id}:
+    get:
+      tags:
+        - Media Servers
+      summary: Get Media Server
+      description: "Get a media server by ID. \n\n\n\n## Args\n\n- **mediaserver_id**\
+        \ (__int__): The ID of the media server.\n\n\n\n## Returns\n\n- **MediaServerRead**:\
+        \ The media server.\n\n\n\n## Raises\n\n- **HTTPException**: If the media\
+        \ server is not found."
+      operationId: get_media_server_api_v1_mediaservers__mediaserver_id__get
+      security:
+        - APIKeyQuery: []
+        - APIKeyHeader: []
+      parameters:
+        - name: mediaserver_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            title: Mediaserver Id
+        - name: trailarr_api_key
+          in: cookie
+          required: false
+          schema:
+            anyOf:
+              - type: string
+              - type: 'null'
+            title: Trailarr Api Key
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaServerRead'
+        '401':
+          description: API key is missing
+        '404':
+          description: Media Server Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    put:
+      tags:
+        - Media Servers
+      summary: Update Media Server
+      description: "Update a media server. \n\n\n\n## Args\n\n- **mediaserver_id**\
+        \ (__int__): The ID of the media server.\n- **mediaserver** (__MediaServerUpdate__):\
+        \ The update data.\n\n\n\n## Returns\n\n- **MediaServerRead**: The updated\
+        \ media server.\n\n\n\n## Raises\n\n- **HTTPException**: If update fails."
+      operationId: update_media_server_api_v1_mediaservers__mediaserver_id__put
+      security:
+        - APIKeyQuery: []
+        - APIKeyHeader: []
+      parameters:
+        - name: mediaserver_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            title: Mediaserver Id
+        - name: trailarr_api_key
+          in: cookie
+          required: false
+          schema:
+            anyOf:
+              - type: string
+              - type: 'null'
+            title: Trailarr Api Key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MediaServerUpdate'
+      responses:
+        '200':
+          description: Media Server Updated Successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaServerRead'
+        '401':
+          description: API key is missing
+        '404':
+          description: Media Server Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+        - Media Servers
+      summary: Delete Media Server
+      description: "Delete a media server. \n\n\n\n## Args\n\n- **mediaserver_id**\
+        \ (__int__): The ID of the media server.\n\n\n\n## Returns\n\n- **str**: Success\
+        \ message.\n\n\n\n## Raises\n\n- **HTTPException**: If deletion fails."
+      operationId: delete_media_server_api_v1_mediaservers__mediaserver_id__delete
+      security:
+        - APIKeyQuery: []
+        - APIKeyHeader: []
+      parameters:
+        - name: mediaserver_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            title: Mediaserver Id
+        - name: trailarr_api_key
+          in: cookie
+          required: false
+          schema:
+            anyOf:
+              - type: string
+              - type: 'null'
+            title: Trailarr Api Key
+      responses:
+        '200':
+          description: Media Server Deleted Successfully
+          content:
+            application/json:
+              schema:
+                type: string
+                title: Response Delete Media Server Api V1 Mediaservers  Mediaserver
+                  Id  Delete
+        '401':
+          description: API key is missing
+        '404':
+          description: Media Server Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/mediaservers/{mediaserver_id}/refresh:
+    post:
+      tags:
+        - Media Servers
+      summary: Refresh Media Server Library
+      description: "Trigger a library refresh on a media server. \n\n\n\n## Args\n\
+        \n- **mediaserver_id** (__int__): The ID of the media server.\n- **folder_path**\
+        \ (__str__): Optional folder path to refresh.\n\n\n\n## Returns\n\n- **str**:\
+        \ Success message.\n\n\n\n## Raises\n\n- **HTTPException**: If refresh fails."
+      operationId: refresh_media_server_library_api_v1_mediaservers__mediaserver_id__refresh_post
+      security:
+        - APIKeyQuery: []
+        - APIKeyHeader: []
+      parameters:
+        - name: mediaserver_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            title: Mediaserver Id
+        - name: folder_path
+          in: query
+          required: false
+          schema:
+            type: string
+            default: ''
+            title: Folder Path
+        - name: trailarr_api_key
+          in: cookie
+          required: false
+          schema:
+            anyOf:
+              - type: string
+              - type: 'null'
+            title: Trailarr Api Key
+      responses:
+        '200':
+          description: Library Refresh Triggered Successfully
+          content:
+            application/json:
+              schema:
+                type: string
+                title: Response Refresh Media Server Library Api V1 Mediaservers  Mediaserver
+                  Id  Refresh Post
+        '401':
+          description: API key is missing
+        '400':
+          description: Failed to Trigger Refresh
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Media Server Not Found
           content:
             application/json:
               schema:
@@ -3499,6 +3852,102 @@ components:
         - downloaded_at
       title: MediaRead
       description: Media model for reading media.
+    MediaServerCreate:
+      properties:
+        name:
+          type: string
+          title: Name
+        server_type:
+          $ref: '#/components/schemas/MediaServerType'
+        url:
+          type: string
+          title: Url
+        api_key:
+          type: string
+          title: Api Key
+        enabled:
+          type: boolean
+          title: Enabled
+          default: true
+      type: object
+      required:
+        - name
+        - server_type
+        - url
+        - api_key
+      title: MediaServerCreate
+      description: MediaServer model for creating a new media server.
+    MediaServerRead:
+      properties:
+        name:
+          type: string
+          title: Name
+        server_type:
+          $ref: '#/components/schemas/MediaServerType'
+        url:
+          type: string
+          title: Url
+        api_key:
+          type: string
+          title: Api Key
+        enabled:
+          type: boolean
+          title: Enabled
+          default: true
+        id:
+          type: integer
+          title: Id
+        added_at:
+          type: string
+          format: date-time
+          title: Added At
+      type: object
+      required:
+        - name
+        - server_type
+        - url
+        - api_key
+        - id
+        - added_at
+      title: MediaServerRead
+      description: MediaServer model for reading a media server.
+    MediaServerType:
+      type: string
+      enum:
+        - emby
+        - jellyfin
+        - plex
+      title: MediaServerType
+      description: Enum for different media server types.
+    MediaServerUpdate:
+      properties:
+        name:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Name
+        server_type:
+          anyOf:
+            - $ref: '#/components/schemas/MediaServerType'
+            - type: 'null'
+        url:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Url
+        api_key:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Api Key
+        enabled:
+          anyOf:
+            - type: boolean
+            - type: 'null'
+          title: Enabled
+      type: object
+      title: MediaServerUpdate
+      description: MediaServer model for updating a media server.
     MonitorStatus:
       type: string
       enum:
@@ -3706,12 +4155,6 @@ components:
         update_available:
           type: boolean
           title: Update Available
-        update_available_ytdlp:
-          type: boolean
-          title: Update Available Ytdlp
-        update_ytdlp:
-          type: boolean
-          title: Update Ytdlp
         url_base:
           type: string
           title: Url Base
@@ -3727,12 +4170,6 @@ components:
         webui_username:
           type: string
           title: Webui Username
-        yt_cookies_path:
-          type: string
-          title: Yt Cookies Path
-        ytdlp_version:
-          type: string
-          title: Ytdlp Version
       type: object
       required:
         - api_key
@@ -3755,15 +4192,11 @@ components:
         - server_start_time
         - timezone
         - update_available
-        - update_available_ytdlp
-        - update_ytdlp
         - url_base
         - version
         - wait_for_media
         - webui_disable_auth
         - webui_username
-        - yt_cookies_path
-        - ytdlp_version
       title: Settings
     StreamInfo:
       properties:
